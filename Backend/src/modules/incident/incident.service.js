@@ -114,3 +114,15 @@ export const getIncidentById = async (incidentId) => {
 
     return incident;
 };
+
+export const deleteIncident = async (incidentId) => {
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    await incident.deleteOne();
+
+    return;
+};

@@ -78,7 +78,16 @@ const incidentSchema = new mongoose.Schema(
     {
         timestamps: true,
     }
+
 );
+
+incidentSchema.index({ status: 1 });
+
+incidentSchema.index({ severity: 1 });
+
+incidentSchema.index({ assignedTo: 1 });
+
+incidentSchema.index({ createdAt: -1 });
 
 const Incident = mongoose.model("Incident", incidentSchema);
 

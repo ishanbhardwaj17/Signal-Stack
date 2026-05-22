@@ -45,3 +45,13 @@ export const getIncidentByIdController =
             data: incident,
         });
     });
+
+export const deleteIncidentController =
+    asyncHandler(async (req, res) => {
+        await deleteIncident(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: "Incident deleted successfully",
+        });
+    });
