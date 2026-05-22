@@ -1,8 +1,7 @@
 import Incident from "./incident.model.js";
+import User from "../auth/user.model.js";
 
-import {
-    INCIDENT_STATUS,
-} from "./incident.constants.js";
+import { STATUS_TRANSITIONS, INCIDENT_STATUS, INCIDENT_SEVERITY } from "./incident.constants.js";
 
 import ApiError from "../../utils/ApiError.js";
 
@@ -125,4 +124,113 @@ export const deleteIncident = async (incidentId) => {
     await incident.deleteOne();
 
     return;
+};
+
+export const assignIncident = async (
+    incidentId,
+    assignedTo,
+    adminId
+) => {
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    const engineer = await User.findById(assignedTo);
+
+    if (!engineer) {
+        throw new ApiError(404, "Engineer not found");
+    }
+
+    if (engineer.role !== "engineer") {
+        throw new ApiError(
+            400,
+            "Only engineers can be assigned incidents"
+        );
+    }
+
+    const previousAssignee = incident.assignedTo;
+
+    incident.assignedTo = assignedTo;
+
+    incident.timeline.push({
+        action: "INCIDENT_ASSIGNED",
+
+        previous: previousAssignee
+            ? previousAssignee.toString()
+            : null,
+
+        current: assignedTo,
+
+        changedBy: adminId,
+    });
+
+    await incident.save();
+
+    return incident;
+};
+
+export const updateIncidentStatus = async (
+    incidentId,
+    newStatus,
+    user
+) => {
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    if (
+        user.role === "engineer" &&
+        incident.assignedTo?.toString() !== user._id.toString()
+    ) {
+        throw new ApiError(
+            403,
+            "You can only update incidents assigned to you"
+        );
+    }
+
+    const currentStatus = incident.status;
+
+    
+    if (user.role !== "admin") {
+        const allowedTransitions =
+            STATUS_TRANSITIONS[currentStatus];
+
+        if (!allowedTransitions.includes(newStatus)) {
+            throw new ApiError(
+                400,
+                `Invalid status transition from ${currentStatus} to ${newStatus}`
+            );
+        }
+    }
+
+    incident.timeline.push({
+        action: "STATUS_CHANGED",
+
+        previous: currentStatus,
+
+        current: newStatus,
+
+        changedBy: user._id,
+    });
+
+    incident.status = newStatus;
+
+    if (newStatus === INCIDENT_STATUS.RESOLVED) {
+        incident.resolvedAt = new Date();
+    }
+
+    if (
+        currentStatus === INCIDENT_STATUS.RESOLVED &&
+        newStatus !== INCIDENT_STATUS.CLOSED
+    ) {
+        incident.resolvedAt = null;
+    }
+
+    await incident.save();
+
+    return incident;
 };

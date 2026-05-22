@@ -4,6 +4,9 @@ import {
     createIncident,
     getAllIncidents,
     getIncidentById,
+    deleteIncident,
+    assignIncident,
+    updateIncidentStatus,
 } from "./incident.service.js";
 
 export const createIncidentController =
@@ -53,5 +56,35 @@ export const deleteIncidentController =
         res.status(200).json({
             success: true,
             message: "Incident deleted successfully",
+        });
+    });
+
+export const assignIncidentController =
+    asyncHandler(async (req, res) => {
+        const incident = await assignIncident(
+            req.params.id,
+            req.body.assignedTo,
+            req.user._id
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Incident assigned successfully",
+            data: incident,
+        });
+    });
+
+export const updateIncidentStatusController =
+    asyncHandler(async (req, res) => {
+        const incident = await updateIncidentStatus(
+            req.params.id,
+            req.body.status,
+            req.user
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Incident status updated",
+            data: incident,
         });
     });

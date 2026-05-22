@@ -13,3 +13,17 @@ export const INCIDENT_SEVERITY = {
     HIGH: "HIGH",
     CRITICAL: "CRITICAL",
 };
+
+export const STATUS_TRANSITIONS = {
+    OPEN: ["TRIAGED"],
+
+    TRIAGED: ["IN_PROGRESS"],
+
+    IN_PROGRESS: ["MONITORING"],
+
+    MONITORING: ["RESOLVED"],
+
+    RESOLVED: ["CLOSED"],
+
+    CLOSED: [],
+};
