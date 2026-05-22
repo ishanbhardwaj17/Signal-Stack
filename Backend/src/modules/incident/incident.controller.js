@@ -27,8 +27,10 @@ export const getAllIncidentsController =
 
         res.status(200).json({
             success: true,
-            count: incidents.length,
-            data: incidents,
+            total: incidents.total,
+            page: incidents.page,
+            totalPages: incidents.totalPages,
+            data: incidents.incidents,
         });
     });
 

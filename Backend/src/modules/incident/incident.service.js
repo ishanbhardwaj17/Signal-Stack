@@ -30,6 +30,7 @@ export const createIncident = async (
 export const getAllIncidents = async (filters) => {
     const query = {};
 
+    // Filtering
     if (filters.status) {
         query.status = filters.status;
     }
@@ -42,12 +43,63 @@ export const getAllIncidents = async (filters) => {
         query.category = filters.category;
     }
 
+    if (filters.assignedTo) {
+        query.assignedTo = filters.assignedTo;
+    }
+
+    if (filters.startDate || filters.endDate) {
+        query.createdAt = {};
+
+        if (filters.startDate) {
+            query.createdAt.$gte = new Date(filters.startDate);
+        }
+
+        if (filters.endDate) {
+            query.createdAt.$lte = new Date(filters.endDate);
+        }
+    }
+
+    if (filters.search) {
+        query.$or = [
+            {
+                title: {
+                    $regex: filters.search,
+                    $options: "i",
+                },
+            },
+            {
+                description: {
+                    $regex: filters.search,
+                    $options: "i",
+                },
+            },
+        ];
+    }
+
+    // Pagination
+    const page = Number(filters.page) || 1;
+
+    const limit = Number(filters.limit) || 10;
+
+    const skip = (page - 1) * limit;
+
+    // Total count
+    const total = await Incident.countDocuments(query);
+
+    // Data
     const incidents = await Incident.find(query)
         .populate("createdBy", "name email role")
         .populate("assignedTo", "name email role")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
-    return incidents;
+    return {
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        incidents,
+    };
 };
 
 export const getIncidentById = async (incidentId) => {
