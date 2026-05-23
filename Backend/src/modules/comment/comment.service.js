@@ -3,6 +3,7 @@ import Comment from "./comment.model.js";
 import Incident from "../incident/incident.model.js";
 
 import ApiError from "../../utils/ApiError.js";
+import { getIO } from "../../socket/socket.server.js";
 
 export const addComment = async (
     incidentId,
@@ -34,6 +35,8 @@ export const addComment = async (
         message,
     });
 
+
+
     // Add timeline entry
     incident.timeline.push({
         action: "COMMENT_ADDED",
@@ -44,6 +47,13 @@ export const addComment = async (
     });
 
     await incident.save();
+
+    const io = getIO();
+
+    io.to(incidentId.toString()).emit(
+        "comment:added",
+        comment
+    );
 
     return await comment.populate(
         "userId",

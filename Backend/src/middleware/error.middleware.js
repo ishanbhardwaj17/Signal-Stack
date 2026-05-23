@@ -1,10 +1,30 @@
 const errorMiddleware = (err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
+    let statusCode = err.statusCode || 500;
+    let message = err.message || "Internal Server Error";
 
-    res.status(statusCode).json({
+    // Mongoose validation error
+    if (err.name === "ValidationError") {
+        statusCode = 400;
+        message = err.message;
+    }
+
+    // Zod validation error
+    if (err.name === "ZodError" && Array.isArray(err.errors)) {
+        statusCode = 400;
+        message = err.errors.map((e) => e.message).join(", ");
+    }
+
+    const response = {
         success: false,
-        message: err.message || "Internal Server Error",
-    });
+        message,
+    };
+
+    // Include stack trace in non-production for easier debugging
+    if (process.env.NODE_ENV !== "production") {
+        response.stack = err.stack;
+    }
+
+    res.status(statusCode).json(response);
 };
 
 export default errorMiddleware;

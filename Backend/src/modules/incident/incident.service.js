@@ -1,5 +1,6 @@
 import Incident from "./incident.model.js";
 import User from "../auth/user.model.js";
+import { getIO } from "../../socket/socket.server.js";
 
 import { STATUS_TRANSITIONS, INCIDENT_STATUS, INCIDENT_SEVERITY } from "./incident.constants.js";
 
@@ -168,6 +169,13 @@ export const assignIncident = async (
 
     await incident.save();
 
+    const io = getIO();
+
+    io.to(incidentId.toString()).emit(
+        "incident:assigned",
+        incident
+    );
+
     return incident;
 };
 
@@ -194,7 +202,7 @@ export const updateIncidentStatus = async (
 
     const currentStatus = incident.status;
 
-    
+
     if (user.role !== "admin") {
         const allowedTransitions =
             STATUS_TRANSITIONS[currentStatus];
@@ -231,6 +239,13 @@ export const updateIncidentStatus = async (
     }
 
     await incident.save();
+
+    const io = getIO();
+
+    io.to(incidentId.toString()).emit(
+        "incident:statusUpdated",
+        incident
+    );
 
     return incident;
 };
