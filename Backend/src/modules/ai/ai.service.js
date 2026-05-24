@@ -1,0 +1,172 @@
+import { GoogleGenAI } from "@google/genai";
+
+import Incident from "../incident/incident.model.js";
+import Comment from "../comment/comment.model.js";
+
+import ApiError from "../../utils/ApiError.js";
+
+import { getIO } from "../../socket/socket.server.js";
+
+import { buildIncidentAnalysisPrompt } from "./prompt.templates.js";
+
+import {
+    INCIDENT_SEVERITY,
+} from "../incident/incident.constants.js";
+
+// Create AI client lazily
+const getAIClient = () => {
+    if (!process.env.GEMINI_API_KEY) {
+        throw new ApiError(
+            500,
+            "GEMINI_API_KEY is missing in environment variables"
+        );
+    }
+
+    return new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+    });
+};
+
+export const analyzeIncident = async (
+    incidentId
+) => {
+    // Fetch incident
+    const incident = await Incident.findById(
+        incidentId
+    );
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    // Fetch comments
+    const comments = await Comment.find({
+        incidentId,
+    })
+        .populate("userId", "name")
+        .sort({ createdAt: 1 });
+
+    // Format comments for AI context
+    const formattedComments = comments
+        .map(
+            (comment) =>
+                `${comment.userId.name}: ${comment.message}`
+        )
+        .join("\n");
+
+    // Build prompt
+    const prompt =
+        buildIncidentAnalysisPrompt({
+            ...incident.toObject(),
+            comments:
+                formattedComments || "No comments",
+        });
+
+    // Initialize AI client
+    const ai = getAIClient();
+
+    // Generate AI response
+    const response =
+        await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new ApiError(
+            500,
+            "Empty response received from AI"
+        );
+    }
+
+    // Remove markdown wrappers
+    const cleanedResponse = text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+    let parsedResponse;
+
+    // Safe JSON parsing
+    try {
+        parsedResponse = JSON.parse(
+            cleanedResponse
+        );
+    } catch (error) {
+        console.error(
+            "AI RAW RESPONSE:",
+            cleanedResponse
+        );
+
+        throw new ApiError(
+            500,
+            "AI returned invalid JSON"
+        );
+    }
+
+    // Validate severity
+    const validSeverities = Object.values(
+        INCIDENT_SEVERITY
+    );
+
+    if (
+        !validSeverities.includes(
+            parsedResponse.severity
+        )
+    ) {
+        throw new ApiError(
+            500,
+            "Invalid severity returned by AI"
+        );
+    }
+
+    // Validate suggestions
+    if (
+        !Array.isArray(
+            parsedResponse.suggestions
+        )
+    ) {
+        throw new ApiError(
+            500,
+            "AI suggestions must be an array"
+        );
+    }
+
+    // Persist AI analysis
+    incident.severity =
+        parsedResponse.severity;
+
+    incident.category =
+        parsedResponse.category;
+
+    incident.aiSummary =
+        parsedResponse.summary;
+
+    incident.aiSuggestions =
+        parsedResponse.suggestions;
+
+    // Timeline event
+    incident.timeline.push({
+        action: "AI_ANALYSIS_COMPLETED",
+
+        previous: null,
+
+        current: parsedResponse.severity,
+
+        changedBy: null,
+    });
+
+    await incident.save();
+
+    // Emit realtime event
+    const io = getIO();
+
+    io.to(incidentId.toString()).emit(
+        "incident:aiAnalyzed",
+        incident
+    );
+
+    return incident;
+};

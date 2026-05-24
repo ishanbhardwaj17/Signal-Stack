@@ -4,6 +4,7 @@ import errorMiddleware from "./middleware/error.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import incidentRoutes from "./modules/incident/incident.routes.js";
 import commentRoutes from "./modules/comment/comment.routes.js";
+import aiRoutes from "./modules/ai/ai.routes.js";
 
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
   res.json({
