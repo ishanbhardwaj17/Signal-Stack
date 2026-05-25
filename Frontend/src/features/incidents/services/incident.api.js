@@ -42,3 +42,24 @@ export const analyzeIncident =
 
         return response.data.data;
     };
+
+export const fetchComments =
+    async (incidentId) => {
+        const response = await api.get(
+            `/comments/${incidentId}`
+        );
+
+        return response.data.data;
+    };
+
+export const addComment =
+    async (incidentId, message) => {
+        const response = await api.post(
+            `/comments/${incidentId}`,
+            {
+                message,
+            }
+        );
+
+        return response.data.data;
+    };

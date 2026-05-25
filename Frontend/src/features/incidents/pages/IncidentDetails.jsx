@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useState } from "react";
 
 import { useParams } from "react-router-dom";
 
@@ -14,7 +15,7 @@ import {
     setIncidentError,
 } from "../state/incident.slice";
 
-import { fetchIncidentById } from "../services/incident.api";
+import { fetchIncidentById, fetchComments } from "../services/incident.api";
 
 import IncidentHeader from "../components/IncidentHeader";
 
@@ -24,8 +25,13 @@ import TimelineCard from "../components/TimelineCard";
 
 import IncidentActions from "../components/IncidentActions";
 
+import CommentsCard from "../components/CommentsCard";
+
+import CommentInput from "../components/CommentInput";
+
 function IncidentDetails() {
     const { id } = useParams();
+    const [comments, setComments] = useState([]);
 
     const dispatch = useDispatch();
 
@@ -35,6 +41,14 @@ function IncidentDetails() {
     } = useSelector(
         (state) => state.incidents
     );
+
+    const loadComments =
+        async () => {
+            const data =
+                await fetchComments(id);
+
+            setComments(data);
+        };
 
     const loadIncident =
         async () => {
@@ -58,8 +72,13 @@ function IncidentDetails() {
             }
         };
 
+    const handleCommentAdded = (newComment) => {
+        setComments((prev) => [newComment, ...prev]);
+    };
+
     useEffect(() => {
         loadIncident();
+        loadComments();
 
         const socket = getSocket();
 
@@ -121,6 +140,10 @@ function IncidentDetails() {
             handleAssigned
         );
 
+        // comments
+        const handleCommentAddedLocal = (comment) => handleCommentAdded(comment);
+        socket.on("comment:added", handleCommentAddedLocal);
+
         return () => {
             socket.off(
                 "incident:statusChanged",
@@ -136,9 +159,11 @@ function IncidentDetails() {
                 "incident:assigned",
                 handleAssigned
             );
+
+            socket.off("comment:added", handleCommentAddedLocal);
         };
     }, [dispatch]);
-    
+
     if (
         loading ||
         !selectedIncident
@@ -165,6 +190,13 @@ function IncidentDetails() {
                         timeline={
                             selectedIncident.timeline
                         }
+                    />
+
+                    <CommentsCard comments={comments} />
+
+                    <CommentInput
+                        incidentId={id}
+                        refreshComments={loadComments}
                     />
                 </div>
 
