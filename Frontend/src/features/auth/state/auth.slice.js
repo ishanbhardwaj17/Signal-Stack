@@ -5,9 +5,7 @@ const initialState = {
 
     isAuthenticated: false,
 
-    loading: false,
-
-    checkingAuth: true,
+    loading: true,
 
     error: null,
 };
@@ -22,16 +20,10 @@ const authSlice = createSlice({
             state.loading = action.payload;
         },
 
-        setCheckingAuth: (state, action) => {
-            state.checkingAuth = action.payload;
-        },
-
         setUser: (state, action) => {
             state.user = action.payload.user;
 
             state.isAuthenticated = !!action.payload.user;
-
-            state.checkingAuth = false;
 
             state.error = null;
 
@@ -42,16 +34,12 @@ const authSlice = createSlice({
             state.error = action.payload;
 
             state.loading = false;
-
-            state.checkingAuth = false;
         },
 
         logout: (state) => {
             state.user = null;
 
             state.isAuthenticated = false;
-
-            state.checkingAuth = false;
 
             state.loading = false;
 
@@ -62,7 +50,6 @@ const authSlice = createSlice({
 
 export const {
     setLoading,
-    setCheckingAuth,
     setUser,
     setError,
     logout,
