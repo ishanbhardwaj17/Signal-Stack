@@ -8,6 +8,8 @@ import Login from "../features/auth/pages/Login";
 
 import Register from "../features/auth/pages/Register";
 
+import PublicRoute from "../shared/components/PublicRoute";
+
 import Dashboard from "../features/dashboard/pages/Dashboard";
 
 import Incidents from "../features/incidents/pages/Incidents";
@@ -24,15 +26,9 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route
-        path="/login"
-        element={<Login />}
-      />
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-      <Route
-        path="/register"
-        element={<Register />}
-      />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
       {/* Protected Routes */}
       <Route

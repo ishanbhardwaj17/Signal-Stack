@@ -67,6 +67,13 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       resolvePendingRequests(refreshError);
+      // Emit a global event so the app can handle logout/redirect
+      try {
+        window.dispatchEvent(new CustomEvent("auth:refreshFailed"));
+      } catch (e) {
+        // ignore in non-browser environments
+      }
+
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
