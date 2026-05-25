@@ -18,6 +18,8 @@ import ProtectedRoute from "../shared/components/ProtectedRoute";
 
 import MainLayout from "../layouts/MainLayout";
 
+import IncidentDetails from "../features/incidents/pages/IncidentDetails";
+
 function AppRoutes() {
   return (
     <Routes>
@@ -40,20 +42,13 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route
-          path="/"
-          element={<Dashboard />}
-        />
+        <Route path="/" element={<Dashboard />} />
 
-        <Route
-          path="/incidents"
-          element={<Incidents />}
-        />
+        <Route path="/incidents" element={<Incidents />} />
 
-        <Route
-          path="/monitoring"
-          element={<Monitoring />}
-        />
+        <Route path="/incidents/:id" element={<IncidentDetails />} />
+
+        <Route path="/monitoring" element={<Monitoring />} />
       </Route>
 
       {/* Fallback */}
