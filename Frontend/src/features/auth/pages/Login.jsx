@@ -43,14 +43,12 @@ function Login() {
       const data = await loginUser(
         formData
       );
+
       dispatch(
         setUser({
           user: data.data.user,
-          token: data.data.token,
         })
       );
-
-      dispatch(setLoading(false));
 
       navigate("/");
     } catch (error) {
@@ -60,6 +58,8 @@ function Login() {
             "Login failed"
         )
       );
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 

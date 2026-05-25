@@ -3,10 +3,11 @@ import { createSlice } from "@reduxjs/toolkit";
 const initialState = {
     user: null,
 
-    token:
-        localStorage.getItem("token") || null,
+    isAuthenticated: false,
 
     loading: false,
+
+    checkingAuth: true,
 
     error: null,
 };
@@ -21,36 +22,47 @@ const authSlice = createSlice({
             state.loading = action.payload;
         },
 
+        setCheckingAuth: (state, action) => {
+            state.checkingAuth = action.payload;
+        },
+
         setUser: (state, action) => {
             state.user = action.payload.user;
 
-            state.token = action.payload.token;
+            state.isAuthenticated = !!action.payload.user;
 
-            if (state.token) {
-                localStorage.setItem("token", state.token);
-            }
+            state.checkingAuth = false;
 
             state.error = null;
+
+            state.loading = false;
         },
 
         setError: (state, action) => {
             state.error = action.payload;
 
             state.loading = false;
+
+            state.checkingAuth = false;
         },
 
         logout: (state) => {
             state.user = null;
 
-            state.token = null;
+            state.isAuthenticated = false;
 
-            localStorage.removeItem("token");
+            state.checkingAuth = false;
+
+            state.loading = false;
+
+            state.error = null;
         },
     },
 });
 
 export const {
     setLoading,
+    setCheckingAuth,
     setUser,
     setError,
     logout,
