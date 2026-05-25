@@ -10,11 +10,18 @@ import Register from "../features/auth/pages/Register";
 
 import Dashboard from "../features/dashboard/pages/Dashboard";
 
+import Incidents from "../features/incidents/pages/Incidents";
+
+import Monitoring from "../features/monitoring/pages/Monitoring";
+
 import ProtectedRoute from "../shared/components/ProtectedRoute";
+
+import MainLayout from "../layouts/MainLayout";
 
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public Routes */}
       <Route
         path="/login"
         element={<Login />}
@@ -25,15 +32,31 @@ function AppRoutes() {
         element={<Register />}
       />
 
+      {/* Protected Routes */}
       <Route
-        path="/"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <MainLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route
+          path="/"
+          element={<Dashboard />}
+        />
 
+        <Route
+          path="/incidents"
+          element={<Incidents />}
+        />
+
+        <Route
+          path="/monitoring"
+          element={<Monitoring />}
+        />
+      </Route>
+
+      {/* Fallback */}
       <Route
         path="*"
         element={<Navigate to="/" />}
