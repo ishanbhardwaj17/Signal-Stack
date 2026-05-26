@@ -2,10 +2,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import http from "http";
-
 import app from "./src/app.js";
-
 import connectDB from "./src/config/db.js";
+import { redisConnection } from "./src/config/redis.js";
 
 import {
   initSocketServer,
