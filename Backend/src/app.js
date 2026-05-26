@@ -7,6 +7,8 @@ import incidentRoutes from "./modules/incident/incident.routes.js";
 import commentRoutes from "./modules/comment/comment.routes.js";
 import aiRoutes from "./modules/ai/ai.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
+import testRoutes from "./modules/test/test.routes.js";
+import monitoringRoutes from './modules/monitoring/monitoring.routes.js';
 
 
 
@@ -29,6 +31,8 @@ app.use("/api/incidents", incidentRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use('/api/test', testRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 app.get("/", (req, res) => {
   res.json({
