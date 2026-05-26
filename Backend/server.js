@@ -5,10 +5,8 @@ import http from "http";
 import app from "./src/app.js";
 import connectDB from "./src/config/db.js";
 import { redisConnection } from "./src/config/redis.js";
-
-import {
-  initSocketServer,
-} from "./src/socket/socket.server.js";
+import { monitoringQueue } from './src/queues/monitoring.queue.js';
+import {  initSocketServer} from "./src/socket/socket.server.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,3 +21,5 @@ server.listen(PORT, () => {
     `Server running on port ${PORT}`
   );
 });
+
+console.log(monitoringQueue.name);
