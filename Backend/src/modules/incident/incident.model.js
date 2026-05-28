@@ -58,7 +58,8 @@ const incidentSchema = new mongoose.Schema(
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: true,
+            required: false,
+            default: null,
         },
 
         assignedTo: {
@@ -67,6 +68,16 @@ const incidentSchema = new mongoose.Schema(
             default: null,
         },
 
+        triggeredByAlert: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Alert",
+            default: null,
+        },
+        source: {
+            type: String,
+            enum: ["manual", "monitoring"],
+            default: "manual",
+        },
         resolvedAt: Date,
 
         timeline: [timelineSchema],

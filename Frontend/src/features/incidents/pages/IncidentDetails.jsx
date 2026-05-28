@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { useParams } from "react-router-dom";
 
@@ -42,53 +41,47 @@ function IncidentDetails() {
         (state) => state.incidents
     );
 
-    const loadComments =
-        async () => {
-            const data =
-                await fetchComments(id);
+    const loadComments = useCallback(async () => {
+        const data = await fetchComments(id);
+        setComments(data);
+    }, [id]);
 
-            setComments(data);
-        };
+    const loadIncident = useCallback(async () => {
+        try {
+            dispatch(setIncidentLoading(true));
 
-    const loadIncident =
-        async () => {
-            try {
-                dispatch(
-                    setIncidentLoading(true)
-                );
+            const data = await fetchIncidentById(id);
 
-                const data =
-                    await fetchIncidentById(id);
-
-                dispatch(
-                    setSelectedIncident(data)
-                );
-            } catch (error) {
-                dispatch(
-                    setIncidentError(
-                        error.message
-                    )
-                );
-            }
-        };
+            dispatch(setSelectedIncident(data));
+        } catch (error) {
+            dispatch(setIncidentError(error.message));
+        }
+    }, [id, dispatch]);
 
     const handleCommentAdded = (newComment) => {
         setComments((prev) => [newComment, ...prev]);
     };
 
     useEffect(() => {
-        loadIncident();
-        loadComments();
+        let isMounted = true;
 
-        const socket = getSocket();
+        const init = async () => {
+            await loadIncident();
+            if (!isMounted) return;
+            await loadComments();
 
-        if (socket) {
-            socket.emit(
-                "joinIncident",
-                id
-            );
-        }
-    }, [id]);
+            const socket = getSocket();
+            if (socket) {
+                socket.emit("joinIncident", id);
+            }
+        };
+
+        init();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [id, loadIncident, loadComments]);
 
     useEffect(() => {
         const socket = getSocket();

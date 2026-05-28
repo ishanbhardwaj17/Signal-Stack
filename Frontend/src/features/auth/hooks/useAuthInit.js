@@ -30,19 +30,19 @@ function useAuthInit() {
           })
         );
       } catch {
-        if (!isMounted) return;
+        if (isMounted) {
+          try {
+            await logoutUser();
+          } catch {
+            // Ignore logout failures during bootstrap cleanup.
+          }
 
-        try {
-          await logoutUser();
-        } catch {
-          // Ignore logout failures during bootstrap cleanup.
+          dispatch(logout());
         }
-
-        dispatch(logout());
       } finally {
-        if (!isMounted) return;
-
-        dispatch(setLoading(false));
+        if (isMounted) {
+          dispatch(setLoading(false));
+        }
       }
     };
 

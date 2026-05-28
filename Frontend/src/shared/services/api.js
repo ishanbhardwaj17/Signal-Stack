@@ -70,7 +70,7 @@ api.interceptors.response.use(
       // Emit a global event so the app can handle logout/redirect
       try {
         window.dispatchEvent(new CustomEvent("auth:refreshFailed"));
-      } catch (e) {
+      } catch {
         // ignore in non-browser environments
       }
 
