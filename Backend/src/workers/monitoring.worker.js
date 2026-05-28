@@ -182,10 +182,13 @@ const worker = new Worker(
                                     timeline: [
                                         {
                                             action:
-                                                'Incident auto-created from monitoring alert',
+                                                'Incident auto-created',
 
                                             current:
-                                                INCIDENT_STATUS.OPEN,
+                                                `Alert triggered for ${metric.metricType}`,
+
+                                            timestamp:
+                                                new Date(),
                                         },
                                     ],
                                 });
@@ -212,6 +215,24 @@ const worker = new Worker(
                             {
                                 incidentId:
                                     activeIncident._id,
+                            }
+                        );
+
+                        await Incident.findByIdAndUpdate(
+                            activeIncident._id,
+                            {
+                                $push: {
+                                    timeline: {
+                                        action:
+                                            'Alert linked',
+
+                                        current:
+                                            `${metric.metricType.toUpperCase()} value ${metric.value} breached threshold ${rule.threshold}`,
+
+                                        timestamp:
+                                            new Date(),
+                                    },
+                                },
                             }
                         );
                     }
