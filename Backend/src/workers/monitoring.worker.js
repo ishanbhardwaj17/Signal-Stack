@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import Incident from '../modules/incident/incident.model.js';
+
 import connectDB from '../config/db.js';
 
 import { Worker } from 'bullmq';
@@ -130,6 +132,48 @@ const worker = new Worker(
                     );
 
                     console.log(alert);
+                    // Check for existing active incident
+                    let existingIncident =
+                        await Incident.findOne({
+                            triggeredByAlert: alert._id,
+
+                            status: {
+                                $in: ['open', 'investigating'],
+                            },
+                        });
+
+                    // If no active incident exists
+                    if (!existingIncident) {
+                        const incident =
+                            await Incident.create({
+                                title: `${metric.metricType.toUpperCase()} issue detected on ${metric.service}`,
+
+                                description: `${metric.metricType.toUpperCase()} crossed threshold value ${rule.threshold}. Current value is ${metric.value}.`,
+
+                                severity: rule.severity,
+
+                                category: 'monitoring',
+
+                                source: 'monitoring',
+
+                                triggeredByAlert: alert._id,
+
+                                timeline: [
+                                    {
+                                        action:
+                                            'Incident auto-created from monitoring alert',
+
+                                        current: 'open',
+                                    },
+                                ],
+                            });
+
+                        console.log(
+                            'Incident Created'
+                        );
+
+                        console.log(incident);
+                    }
                 }
             }
         }
