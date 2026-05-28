@@ -16,6 +16,8 @@ import AlertRule from '../modules/alerts/alertRule.model.js';
 
 import Alert from '../modules/alerts/alert.model.js';
 
+import { INCIDENT_STATUS } from '../modules/incident/incident.constants.js';
+
 // Connect MongoDB
 await connectDB();
 
@@ -141,47 +143,67 @@ const worker = new Worker(
                                 metric.metricType,
 
                             status: {
-                                $in: ['open', 'investigating'],
+                                $in: [
+                                    INCIDENT_STATUS.OPEN,
+                                    INCIDENT_STATUS.TRIAGED,
+                                    INCIDENT_STATUS.IN_PROGRESS,
+                                    INCIDENT_STATUS.MONITORING,
+                                ],
                             },
                         });
 
                     // If no active incident exists
                     if (!existingIncident) {
-                        const incident =
-                            await Incident.create({
-                                service:
-                                    metric.service,
+                        try {
+                            const incident =
+                                await Incident.create({
+                                    service:
+                                        metric.service,
 
-                                metricType:
-                                    metric.metricType,
+                                    metricType:
+                                        metric.metricType,
 
-                                title: `${metric.metricType.toUpperCase()} issue detected on ${metric.service}`,
+                                    title: `${metric.metricType.toUpperCase()} issue detected on ${metric.service}`,
 
-                                description: `${metric.metricType.toUpperCase()} crossed threshold value ${rule.threshold}. Current value is ${metric.value}.`,
+                                    description: `${metric.metricType.toUpperCase()} crossed threshold value ${rule.threshold}. Current value is ${metric.value}.`,
 
-                                severity: rule.severity,
+                                    severity:
+                                        rule.severity.toUpperCase(),
 
-                                category: 'monitoring',
+                                    category:
+                                        'monitoring',
 
-                                source: 'monitoring',
+                                    source:
+                                        'monitoring',
 
-                                triggeredByAlert: alert._id,
+                                    triggeredByAlert:
+                                        alert._id,
 
-                                timeline: [
-                                    {
-                                        action:
-                                            'Incident auto-created from monitoring alert',
+                                    timeline: [
+                                        {
+                                            action:
+                                                'Incident auto-created from monitoring alert',
 
-                                        current: 'open',
-                                    },
-                                ],
-                            });
+                                            current:
+                                                INCIDENT_STATUS.OPEN,
+                                        },
+                                    ],
+                                });
 
-                        console.log(
-                            'Incident Created'
-                        );
+                            console.log(
+                                'Incident Created'
+                            );
 
-                        console.log(incident);
+                            console.log(incident);
+                        } catch (error) {
+                            console.log(
+                                'Incident Creation Failed'
+                            );
+
+                            console.log(
+                                error.message
+                            );
+                        }
                     }
                 }
             }
