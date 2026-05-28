@@ -135,7 +135,10 @@ const worker = new Worker(
                     // Check for existing active incident
                     let existingIncident =
                         await Incident.findOne({
-                            triggeredByAlert: alert._id,
+                            service: metric.service,
+
+                            metricType:
+                                metric.metricType,
 
                             status: {
                                 $in: ['open', 'investigating'],
@@ -146,6 +149,12 @@ const worker = new Worker(
                     if (!existingIncident) {
                         const incident =
                             await Incident.create({
+                                service:
+                                    metric.service,
+
+                                metricType:
+                                    metric.metricType,
+
                                 title: `${metric.metricType.toUpperCase()} issue detected on ${metric.service}`,
 
                                 description: `${metric.metricType.toUpperCase()} crossed threshold value ${rule.threshold}. Current value is ${metric.value}.`,

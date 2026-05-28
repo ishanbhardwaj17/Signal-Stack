@@ -12,6 +12,18 @@ export const createIncidentSchema = z.object({
 
     category: z.string().min(3),
 
+    service: z.string().min(1),
+
+    metricType: z
+        .enum([
+            'cpu',
+            'memory',
+            'latency',
+            'errors',
+        ])
+        .nullable()
+        .optional(),
+
     severity: z.enum([
         INCIDENT_SEVERITY.LOW,
         INCIDENT_SEVERITY.MEDIUM,

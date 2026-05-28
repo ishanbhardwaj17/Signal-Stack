@@ -55,6 +55,25 @@ const incidentSchema = new mongoose.Schema(
             required: true,
         },
 
+        service: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+
+        metricType: {
+            type: String,
+
+            enum: [
+                'cpu',
+                'memory',
+                'latency',
+                'errors',
+            ],
+
+            default: null,
+        },
+
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -97,6 +116,8 @@ incidentSchema.index({ status: 1 });
 incidentSchema.index({ severity: 1 });
 
 incidentSchema.index({ assignedTo: 1 });
+
+incidentSchema.index({ service: 1, metricType: 1, status: 1 });
 
 incidentSchema.index({ createdAt: -1 });
 
