@@ -135,7 +135,7 @@ const worker = new Worker(
 
                     console.log(alert);
                     // Check for existing active incident
-                    let existingIncident =
+                    let activeIncident =
                         await Incident.findOne({
                             service: metric.service,
 
@@ -152,10 +152,10 @@ const worker = new Worker(
                             },
                         });
 
-                    // If no active incident exists
-                    if (!existingIncident) {
+                    // If no active incident exists, create one
+                    if (!activeIncident) {
                         try {
-                            const incident =
+                            activeIncident =
                                 await Incident.create({
                                     service:
                                         metric.service,
@@ -194,7 +194,7 @@ const worker = new Worker(
                                 'Incident Created'
                             );
 
-                            console.log(incident);
+                            console.log(activeIncident);
                         } catch (error) {
                             console.log(
                                 'Incident Creation Failed'
@@ -204,6 +204,16 @@ const worker = new Worker(
                                 error.message
                             );
                         }
+                    }
+
+                    if (activeIncident) {
+                        await Alert.findByIdAndUpdate(
+                            alert._id,
+                            {
+                                incidentId:
+                                    activeIncident._id,
+                            }
+                        );
                     }
                 }
             }

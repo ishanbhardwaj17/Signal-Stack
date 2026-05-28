@@ -65,6 +65,12 @@ const alertSchema =
                 default: 'open',
             },
 
+            incidentId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Incident',
+                default: null,
+            },
+
             triggeredAt: {
                 type: Date,
                 default: Date.now,
