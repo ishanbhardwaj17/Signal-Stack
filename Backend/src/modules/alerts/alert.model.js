@@ -41,10 +41,10 @@ const alertSchema =
                 required: true,
 
                 enum: [
-                    'low',
-                    'medium',
-                    'high',
-                    'critical',
+                    'LOW',
+                    'MEDIUM',
+                    'HIGH',
+                    'CRITICAL'
                 ],
             },
 
