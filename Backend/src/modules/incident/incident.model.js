@@ -99,6 +99,16 @@ const incidentSchema = new mongoose.Schema(
         },
         resolvedAt: Date,
 
+        slaDueAt: {
+            type: Date,
+            default: null,
+        },
+
+        slaBreached: {
+            type: Boolean,
+            default: false,
+        },
+
         timeline: [timelineSchema],
 
         aiSummary: String,

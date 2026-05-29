@@ -11,6 +11,7 @@ import AlertRule from '../modules/alerts/alertRule.model.js';
 import Alert from '../modules/alerts/alert.model.js';
 import { INCIDENT_STATUS } from '../modules/incident/incident.constants.js';
 import { shouldEscalateSeverity } from '../modules/incident/incident.utils.js';
+import { calculateSlaDueAt } from '../modules/incident/incident.sla.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -121,6 +122,7 @@ const worker = new Worker(
                         title: `${metric.metricType.toUpperCase()} issue detected on ${metric.service}`,
                         description: `${metric.metricType.toUpperCase()} crossed threshold value ${rule.threshold}. Current value is ${metric.value}.`,
                         severity: incomingSeverity,
+                        slaDueAt: calculateSlaDueAt(incomingSeverity),
                         category: 'monitoring',
                         source: 'monitoring',
                         triggeredByAlert: alert._id,
