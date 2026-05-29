@@ -203,18 +203,16 @@ export const updateIncidentStatus = async (
     const currentStatus = incident.status;
 
 
-    if (user.role !== "admin") {
-        const allowedTransitions =
-            STATUS_TRANSITIONS[currentStatus];
+    const allowedTransitions =
+        STATUS_TRANSITIONS[currentStatus];
 
-        if (!allowedTransitions.includes(newStatus)) {
-            throw new ApiError(
-                400,
-                `Invalid status transition from ${currentStatus} to ${newStatus}`
-            );
-        }
+    if (!allowedTransitions.includes(newStatus)) {
+        throw new ApiError(
+            400,
+            `Invalid status transition from ${currentStatus} to ${newStatus}`
+        );
     }
-
+    
     incident.timeline.push({
         action: "STATUS_CHANGED",
 
