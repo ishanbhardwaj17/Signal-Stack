@@ -52,6 +52,44 @@ const worker = new Worker(
     async (job) => {
         console.log(`Processing Job: ${job.name}`);
 
+        if (job.name === 'sla-check') {
+            const { incidentId } = job.data;
+
+            const incident =
+                await Incident.findById(incidentId);
+
+            if (!incident) {
+                return;
+            }
+
+            if (
+                incident.status === INCIDENT_STATUS.RESOLVED ||
+                incident.status === INCIDENT_STATUS.CLOSED
+            ) {
+                console.log(
+                    `Incident ${incidentId} already resolved`
+                );
+
+                return;
+            }
+
+            incident.slaBreached = true;
+
+            incident.timeline.push({
+                action: 'SLA_BREACHED',
+                current: `SLA breached for ${incident.severity} incident`,
+                timestamp: new Date(),
+            });
+
+            await incident.save();
+
+            console.log(
+                `SLA Breached for Incident ${incidentId}`
+            );
+
+            return;
+        }
+
         if (job.name !== 'metric-ingestion') {
             return;
         }
@@ -185,6 +223,21 @@ const worker = new Worker(
                 const previousSeverity = activeIncident.severity;
 
                 activeIncident.severity = incomingSeverity;
+
+                activeIncident.slaDueAt =
+                    calculateSlaDueAt(
+                        incomingSeverity
+                    );
+
+                activeIncident.timeline.push({
+                    action: 'SLA_UPDATED',
+
+                    previous: previousSeverity,
+
+                    current: incomingSeverity,
+
+                    timestamp: new Date(),
+                });
 
                 activeIncident.timeline.push({
                     action: 'SEVERITY_ESCALATED',

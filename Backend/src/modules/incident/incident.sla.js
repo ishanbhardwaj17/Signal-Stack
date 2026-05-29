@@ -1,8 +1,8 @@
  export const SLA_MINUTES = {
     LOW: 24 * 60,
     MEDIUM: 4 * 60,
-    HIGH: 60,
-    CRITICAL: 1,
+    HIGH: 0.1,
+    CRITICAL: 0.1,
 };
 
 export const getSlaDelayMs = (
