@@ -11,7 +11,13 @@ import AlertRule from '../modules/alerts/alertRule.model.js';
 import Alert from '../modules/alerts/alert.model.js';
 import { INCIDENT_STATUS } from '../modules/incident/incident.constants.js';
 import { shouldEscalateSeverity } from '../modules/incident/incident.utils.js';
-import { calculateSlaDueAt } from '../modules/incident/incident.sla.js';
+import {
+    calculateSlaDueAt,
+    getSlaDelayMs,
+} from '../modules/incident/incident.sla.js';
+import {
+    scheduleSlaCheck,
+} from '../queues/monitoring.queue.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -113,6 +119,11 @@ const worker = new Worker(
                     ],
                 },
             });
+            console.log(
+  activeIncident
+    ? `Reusing Incident ${activeIncident._id}`
+    : 'No active incident found'
+);
 
             if (!activeIncident) {
                 try {
@@ -134,6 +145,19 @@ const worker = new Worker(
                             },
                         ],
                     });
+
+                    console.log('Incident Created Successfully');
+
+                    await scheduleSlaCheck(
+                        activeIncident._id,
+                        getSlaDelayMs(
+                            incomingSeverity
+                        )
+                    );
+
+                    console.log(
+                        `SLA Check Scheduled for ${activeIncident._id}`
+                    );
 
                     console.log('Incident Created');
                     console.log(activeIncident);

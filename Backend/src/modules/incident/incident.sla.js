@@ -2,7 +2,17 @@
     LOW: 24 * 60,
     MEDIUM: 4 * 60,
     HIGH: 60,
-    CRITICAL: 15,
+    CRITICAL: 1,
+};
+
+export const getSlaDelayMs = (
+    severity
+) => {
+    return (
+        SLA_MINUTES[severity?.toUpperCase()] *
+        60 *
+        1000
+    );
 };
 
 export const calculateSlaDueAt = (

@@ -7,3 +7,26 @@ export const monitoringQueue = new Queue(
     connection: redisConnection,
   }
 );
+
+export const scheduleSlaCheck = async (
+  incidentId,
+  delay
+) => {
+  const job = await monitoringQueue.add(
+    'sla-check',
+
+    {
+      incidentId,
+    },
+
+    {
+      delay,
+    }
+  );
+
+  console.log(
+    `Scheduled SLA Job ${job.id}`
+  );
+
+  return job;
+};
