@@ -8,6 +8,7 @@ import ApiError from "../../utils/ApiError.js";
 import { getIO } from "../../socket/socket.server.js";
 
 import { buildIncidentAnalysisPrompt } from "./prompt.templates.js";
+import { incidentSummaryPrompt } from "./prompt.templates.js";
 
 import {
     INCIDENT_SEVERITY,
@@ -169,4 +170,45 @@ export const analyzeIncident = async (
     );
 
     return incident;
+};
+
+export const generateIncidentSummary = async (incidentId) => {
+    // Fetch incident
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    // Fetch comments
+    const comments = await Comment.find({ incidentId })
+        .populate("userId", "name")
+        .sort({ createdAt: 1 });
+
+    const formattedComments = comments
+        .map((comment) => `${comment.userId.name}: ${comment.message}`)
+        .join("\n");
+
+    const prompt = incidentSummaryPrompt({
+        ...incident.toObject(),
+        comments: formattedComments || "No comments",
+    });
+
+    const ai = getAIClient();
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new ApiError(500, "Empty response received from AI");
+    }
+
+    // Return cleaned text
+    const cleaned = text.replace(/```/g, "").trim();
+
+    return cleaned;
 };

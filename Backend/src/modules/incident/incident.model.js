@@ -114,6 +114,8 @@ const incidentSchema = new mongoose.Schema(
         aiSummary: String,
 
         aiSuggestions: [String],
+
+        aiSummaryGeneratedAt: Date,
     },
     {
         timestamps: true,

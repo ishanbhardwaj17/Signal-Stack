@@ -30,3 +30,23 @@ Return JSON in this exact format:
 }
 `;
 };
+
+export const incidentSummaryPrompt = (
+    incident
+) => `
+You are an SRE incident assistant.
+
+Analyze this incident and provide:
+
+1. Executive Summary
+2. Possible Root Cause
+3. Recommended Actions
+
+Incident:
+
+${JSON.stringify(
+    incident,
+    null,
+    2
+)}
+`;

@@ -8,6 +8,7 @@ import {
     assignIncidentController,
     updateIncidentStatusController,
 } from "./incident.controller.js";
+import { generateIncidentSummaryController } from "../ai/ai.controller.js";
 
 import validate from "../../middleware/validate.middleware.js";
 
@@ -62,6 +63,12 @@ router.patch(
   protect,
   validate(updateStatusSchema),
   updateIncidentStatusController
+);
+
+router.post(
+  "/:id/generate-summary",
+  protect,
+  generateIncidentSummaryController
 );
 
 export default router;
