@@ -30,3 +30,21 @@ export const scheduleSlaCheck = async (
 
   return job;
 };
+
+export const scheduleIncidentSummary = async (
+  incidentId
+) => {
+  const job =
+    await monitoringQueue.add(
+      'incident-ai-summary',
+      {
+        incidentId,
+      }
+    );
+
+  console.log(
+    `AI Summary Job Scheduled ${job.id}`
+  );
+
+  return job;
+};

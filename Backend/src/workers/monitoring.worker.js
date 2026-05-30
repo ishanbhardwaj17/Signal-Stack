@@ -18,6 +18,12 @@ import {
 import {
     scheduleSlaCheck,
 } from '../queues/monitoring.queue.js';
+import {
+    scheduleIncidentSummary,
+} from '../queues/monitoring.queue.js';
+import {
+    generateIncidentSummary,
+} from '../modules/ai/ai.service.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -86,6 +92,36 @@ const worker = new Worker(
             console.log(
                 `SLA Breached for Incident ${incidentId}`
             );
+
+            return;
+        }
+
+        if (
+            job.name ===
+            'incident-ai-summary'
+        ) {
+            const { incidentId } =
+                job.data;
+
+            console.log(
+                `Generating AI Summary for ${incidentId}`
+            );
+
+            try {
+                await generateIncidentSummary(
+                    incidentId
+                );
+
+                console.log(
+                    `AI Summary Generated`
+                );
+            } catch (error) {
+                console.log(
+                    `AI Summary Failed`
+                );
+
+                console.log(error.message);
+            }
 
             return;
         }
@@ -186,6 +222,7 @@ const worker = new Worker(
 
                     console.log('Incident Created Successfully');
 
+
                     await scheduleSlaCheck(
                         activeIncident._id,
                         getSlaDelayMs(
@@ -193,8 +230,16 @@ const worker = new Worker(
                         )
                     );
 
+                    await scheduleIncidentSummary(
+                        activeIncident._id
+                    );
+
                     console.log(
                         `SLA Check Scheduled for ${activeIncident._id}`
+                    );
+
+                    console.log(
+                        `AI Summary Job Scheduled for ${activeIncident._id}`
                     );
 
                     console.log('Incident Created');
