@@ -210,5 +210,11 @@ export const generateIncidentSummary = async (incidentId) => {
     // Return cleaned text
     const cleaned = text.replace(/```/g, "").trim();
 
-    return cleaned;
+    incident.aiSummary = cleaned;
+
+    incident.aiSummaryGeneratedAt = new Date();
+
+    await incident.save();
+
+    return incident;
 };
