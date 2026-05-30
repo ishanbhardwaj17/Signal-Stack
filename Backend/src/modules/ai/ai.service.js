@@ -9,6 +9,7 @@ import { getIO } from "../../socket/socket.server.js";
 
 import { buildIncidentAnalysisPrompt } from "./prompt.templates.js";
 import { incidentSummaryPrompt } from "./prompt.templates.js";
+import { buildPlaybookPrompt } from "./prompt.templates.js";
 
 import {
     INCIDENT_SEVERITY,
@@ -307,6 +308,88 @@ ${formattedComments || "No comments"}
     const io = getIO();
 
     io.to(incidentId.toString()).emit("incident:aiStructuredAnalyzed", incident);
+
+    return incident;
+};
+
+export const generateIncidentPlaybook =
+    async (incidentId) => {
+    const incident = await Incident.findById(
+        incidentId
+    );
+
+    if (!incident) {
+        throw new ApiError(
+            404,
+            "Incident not found"
+        );
+    }
+
+    const prompt = buildPlaybookPrompt(
+        incident.toObject()
+    );
+
+    const ai = getAIClient();
+
+    const response =
+        await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new ApiError(
+            500,
+            "Empty AI response"
+        );
+    }
+
+    const cleaned = text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+    let parsed;
+
+    try {
+        parsed = JSON.parse(cleaned);
+    } catch (error) {
+        console.log("AI RAW RESPONSE:");
+        console.log(cleaned);
+
+        throw new ApiError(
+            500,
+            "AI returned invalid JSON"
+        );
+    }
+
+    if (
+        !Array.isArray(parsed.playbook)
+    ) {
+        throw new ApiError(
+            500,
+            "Invalid playbook format"
+        );
+    }
+
+    incident.aiPlaybook =
+        parsed.playbook;
+
+    incident.timeline.push({
+        action:
+            "AI_PLAYBOOK_GENERATED",
+
+        previous: null,
+
+        current:
+            `${parsed.playbook.length} steps generated`,
+
+        changedBy: null,
+    });
+
+    await incident.save();
 
     return incident;
 };

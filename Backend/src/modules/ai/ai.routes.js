@@ -2,14 +2,14 @@ import express from "express";
 
 import { protect } from "../../middleware/auth.middleware.js";
 
-import { analyzeIncidentController, generateIncidentSummaryController, generateStructuredAnalysisController } from "./ai.controller.js";
+import { analyzeIncidentController, generateIncidentSummaryController, generateStructuredAnalysisController, generatePlaybookController } from "./ai.controller.js";
 
 const router = express.Router();
 
 router.post(
-    "/incidents/:id/analyze",
-    protect,
-    analyzeIncidentController
+  "/incidents/:id/analyze",
+  protect,
+  analyzeIncidentController
 );
 
 router.post(
@@ -22,6 +22,12 @@ router.post(
   '/incidents/:id/analyze-structured',
   protect,
   generateStructuredAnalysisController
+);
+
+router.post(
+  "/incidents/:id/generate-playbook",
+  protect,
+  generatePlaybookController
 );
 
 export default router;

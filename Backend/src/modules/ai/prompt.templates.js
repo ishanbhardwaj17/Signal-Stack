@@ -79,3 +79,31 @@ ${JSON.stringify(
         2
     )}
 `;
+
+export const buildPlaybookPrompt = (
+    incident
+) => {
+    return `
+You are a Senior Site Reliability Engineer.
+
+Generate an incident response playbook.
+
+Return ONLY valid JSON.
+
+Incident:
+
+${JSON.stringify(incident, null, 2)}
+
+JSON format:
+
+{
+  "playbook": [
+    {
+      "step": 1,
+      "action": "string",
+      "command": "string"
+    }
+  ]
+}
+`;
+};

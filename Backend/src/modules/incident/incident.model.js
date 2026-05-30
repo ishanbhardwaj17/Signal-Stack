@@ -114,7 +114,7 @@ const incidentSchema = new mongoose.Schema(
         aiSummary: String,
 
         aiSuggestions: [String],
-        
+
         aiRootCause: String,
 
         aiRecommendations: [String],
@@ -122,6 +122,14 @@ const incidentSchema = new mongoose.Schema(
         aiRiskAssessment: String,
 
         aiSummaryGeneratedAt: Date,
+
+        aiPlaybook: [
+            {
+                step: Number,
+                action: String,
+                command: String,
+            },
+        ],
     },
     {
         timestamps: true,
