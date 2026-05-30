@@ -218,3 +218,95 @@ export const generateIncidentSummary = async (incidentId) => {
 
     return incident;
 };
+
+export const generateStructuredAnalysis = async (incidentId) => {
+    // Fetch incident
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+        throw new ApiError(404, "Incident not found");
+    }
+
+    // Fetch comments
+    const comments = await Comment.find({ incidentId })
+        .populate("userId", "name")
+        .sort({ createdAt: 1 });
+
+    const formattedComments = comments
+        .map((comment) => `${comment.userId.name}: ${comment.message}`)
+        .join("\n");
+
+    const prompt = `You are an expert Site Reliability Engineer.
+
+Analyze the following incident and return ONLY valid JSON in this exact format:
+
+{
+  "summary": "string",
+  "rootCause": "string",
+  "recommendations": ["string"],
+  "riskAssessment": "LOW | MEDIUM | HIGH"
+}
+
+Incident Title:
+${incident.title}
+
+Incident Description:
+${incident.description}
+
+Current Status:
+${incident.status}
+
+Comments:
+${formattedComments || "No comments"}
+`;
+
+    const ai = getAIClient();
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    const text = response.text;
+
+    if (!text) {
+        throw new ApiError(500, "Empty response received from AI");
+    }
+
+    const cleanedResponse = text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+    let parsed;
+
+    try {
+        parsed = JSON.parse(cleanedResponse);
+    } catch (err) {
+        console.error("AI RAW RESPONSE:", cleanedResponse);
+        throw new ApiError(500, "AI returned invalid JSON for structured analysis");
+    }
+
+    // Persist structured fields
+    incident.aiSummary = parsed.summary;
+    incident.aiRootCause = parsed.rootCause;
+    incident.aiRecommendations = parsed.recommendations;
+    incident.aiRiskAssessment = parsed.riskAssessment;
+
+    incident.timeline.push({
+        action: "AI_STRUCTURED_ANALYSIS_COMPLETED",
+        previous: null,
+        current: incident.aiRiskAssessment || null,
+        changedBy: null,
+        timestamp: new Date(),
+    });
+
+    await incident.save();
+
+    // Emit realtime event
+    const io = getIO();
+
+    io.to(incidentId.toString()).emit("incident:aiStructuredAnalyzed", incident);
+
+    return incident;
+};

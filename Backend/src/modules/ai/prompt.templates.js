@@ -50,3 +50,32 @@ ${JSON.stringify(
     2
 )}
 `;
+
+export const structuredIncidentPrompt =
+    (
+        incident
+    ) => `
+You are an expert SRE.
+
+Analyze this incident.
+
+Return ONLY valid JSON.
+
+{
+  "summary": "string",
+  "rootCause": "string",
+  "riskAssessment": "string",
+  "recommendations": [
+     "item1",
+     "item2"
+  ]
+}
+
+Incident:
+
+${JSON.stringify(
+        incident,
+        null,
+        2
+    )}
+`;

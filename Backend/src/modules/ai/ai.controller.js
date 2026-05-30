@@ -1,5 +1,5 @@
 import asyncHandler from "../../utils/asyncHandler.js";
-import { analyzeIncident, generateIncidentSummary } from "./ai.service.js";
+import { analyzeIncident, generateIncidentSummary, generateStructuredAnalysis } from "./ai.service.js";
 
 export const analyzeIncidentController =
     asyncHandler(async (req, res) => {
@@ -20,5 +20,16 @@ export const generateIncidentSummaryController =
             success: true,
             message: "Incident summary generated successfully",
             data: summary,
+        });
+    });
+
+export const generateStructuredAnalysisController =
+    asyncHandler(async (req, res) => {
+        const incident = await generateStructuredAnalysis(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: "Incident structured analysis generated successfully",
+            data: incident,
         });
     });

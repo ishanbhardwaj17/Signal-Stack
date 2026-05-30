@@ -114,6 +114,12 @@ const incidentSchema = new mongoose.Schema(
         aiSummary: String,
 
         aiSuggestions: [String],
+        
+        aiRootCause: String,
+
+        aiRecommendations: [String],
+
+        aiRiskAssessment: String,
 
         aiSummaryGeneratedAt: Date,
     },
