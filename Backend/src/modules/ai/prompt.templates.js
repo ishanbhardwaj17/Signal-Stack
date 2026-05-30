@@ -1,3 +1,5 @@
+import { PLAYBOOK_CONTEXT } from "./playbook.templates.js";
+
 export const buildIncidentAnalysisPrompt = (
     incident
 ) => {
@@ -83,10 +85,19 @@ ${JSON.stringify(
 export const buildPlaybookPrompt = (
     incident
 ) => {
+  const context =
+    PLAYBOOK_CONTEXT[
+      incident.metricType?.toLowerCase()
+    ] || "";
+
     return `
 You are a Senior Site Reliability Engineer.
 
 Generate an incident response playbook.
+
+Special Investigation Context:
+
+${context}
 
 Return ONLY valid JSON.
 
