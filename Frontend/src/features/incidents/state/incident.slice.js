@@ -14,6 +14,8 @@ const initialState = {
     error: null,
 
     selectedIncident: null,
+
+    liveFeed: [],
 };
 
 const incidentSlice = createSlice({
@@ -69,6 +71,16 @@ const incidentSlice = createSlice({
 
             state.error = null;
         },
+
+        addLiveIncident: (state, action) => {
+            state.liveFeed.unshift(action.payload);
+
+            state.liveFeed = state.liveFeed.slice(0, 20);
+        },
+
+        clearLiveFeed: (state) => {
+            state.liveFeed = [];
+        },
     },
 });
 
@@ -77,6 +89,8 @@ export const {
     setIncidents,
     setIncidentError,
     setSelectedIncident,
+    addLiveIncident,
+    clearLiveFeed,
 } = incidentSlice.actions;
 
 export default incidentSlice.reducer;

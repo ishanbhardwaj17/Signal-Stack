@@ -25,7 +25,6 @@ import {
     generateIncidentSummary,
 } from '../modules/ai/ai.service.js';
 import { autoAssignIncident } from '../modules/incident/assignment.service.js';
-import { getIO } from '../socket/socket.server.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -60,12 +59,16 @@ const emitSocketEvent = (
     payload
 ) => {
     try {
-        const io = getIO();
-
-        io.emit(eventName, payload);
+        redisConnection.publish(
+            'socket-events',
+            JSON.stringify({
+                eventName,
+                payload,
+            })
+        );
 
         console.log(
-            `Socket Event Sent: ${eventName}`
+            `Socket Event Queued: ${eventName}`
         );
     } catch (error) {
         console.log(

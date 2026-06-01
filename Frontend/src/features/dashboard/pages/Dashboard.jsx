@@ -20,8 +20,14 @@ import SeverityChart from "../components/SeverityChart";
 
 import IncidentTrendsChart from "../components/IncidentTrendsChart";
 
+import useDashboardSocket from "../hooks/useDashboardSocket";
+
+import LiveIncidentFeed from "../components/LiveIncidentFeed";
+
 function Dashboard() {
     const dispatch = useDispatch();
+
+    useDashboardSocket();
 
     const {
         stats,
@@ -129,6 +135,8 @@ function Dashboard() {
                     data={trends}
                 />
             </div>
+
+            <LiveIncidentFeed />
         </div>
     );
 }

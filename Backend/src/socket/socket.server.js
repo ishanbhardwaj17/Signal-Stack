@@ -1,12 +1,38 @@
 import { Server } from "socket.io";
+import { redisConnection } from "../config/redis.js";
 
 let io;
+let socketEventSubscriber;
 
 export const initSocketServer = (server) => {
     io = new Server(server, {
         cors: {
-            origin: "*",
+            origin:
+                process.env.FRONTEND_URL ||
+                "http://localhost:5173",
+            credentials: true,
         },
+    });
+
+    socketEventSubscriber = redisConnection.duplicate();
+
+    socketEventSubscriber.subscribe("socket-events");
+
+    socketEventSubscriber.on("message", (_, message) => {
+        try {
+            const parsedMessage = JSON.parse(message);
+
+            if (!parsedMessage?.eventName) {
+                return;
+            }
+
+            io.emit(
+                parsedMessage.eventName,
+                parsedMessage.payload
+            );
+        } catch (error) {
+            console.log("Socket event relay failed");
+        }
     });
 
     io.on("connection", (socket) => {
