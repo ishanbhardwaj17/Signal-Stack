@@ -25,6 +25,7 @@ import {
     generateIncidentSummary,
 } from '../modules/ai/ai.service.js';
 import { autoAssignIncident } from '../modules/incident/assignment.service.js';
+import { getIO } from '../socket/socket.server.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -51,6 +52,25 @@ const evaluateCondition = (
             return metricValue === threshold;
         default:
             return false;
+    }
+};
+
+const emitSocketEvent = (
+    eventName,
+    payload
+) => {
+    try {
+        const io = getIO();
+
+        io.emit(eventName, payload);
+
+        console.log(
+            `Socket Event Sent: ${eventName}`
+        );
+    } catch (error) {
+        console.log(
+            `Socket Event Skipped: ${eventName}`
+        );
     }
 };
 
@@ -82,6 +102,11 @@ const worker = new Worker(
 
             incident.slaBreached = true;
 
+            emitSocketEvent(
+                'incident:slaBreached',
+                incident
+            );
+
             incident.timeline.push({
                 action: 'SLA_BREACHED',
                 current: `SLA breached for ${incident.severity} incident`,
@@ -111,6 +136,13 @@ const worker = new Worker(
             try {
                 await generateIncidentSummary(
                     incidentId
+                );
+
+                emitSocketEvent(
+                    'incident:aiSummaryGenerated',
+                    {
+                        incidentId,
+                    }
                 );
 
                 console.log(
@@ -223,7 +255,17 @@ const worker = new Worker(
 
                     console.log('Incident Created Successfully');
 
+                    emitSocketEvent(
+                        'incident:created',
+                        activeIncident
+                    );
+
                     await autoAssignIncident(activeIncident);
+
+                    emitSocketEvent(
+                        'incident:assigned',
+                        activeIncident
+                    );
 
 
                     await scheduleSlaCheck(
@@ -271,6 +313,19 @@ const worker = new Worker(
                 const previousSeverity = activeIncident.severity;
 
                 activeIncident.severity = incomingSeverity;
+
+                emitSocketEvent(
+                    'incident:severityEscalated',
+                    {
+                        incidentId:
+                            activeIncident._id,
+
+                        previousSeverity,
+
+                        currentSeverity:
+                            incomingSeverity,
+                    }
+                );
 
                 activeIncident.slaDueAt =
                     calculateSlaDueAt(
