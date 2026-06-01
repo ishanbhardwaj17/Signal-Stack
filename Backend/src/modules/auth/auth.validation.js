@@ -9,7 +9,18 @@ export const registerSchema = z.object({
         .string()
         .min(6, "Password must be at least 6 characters"),
 
-    role: z.enum(["admin", "engineer"]).optional(),
+    role: z.preprocess(
+        (value) =>
+            typeof value === "string"
+                ? value.toUpperCase()
+                : value,
+        z.enum([
+            "USER",
+            "ENGINEER",
+            "SENIOR_ENGINEER",
+            "ADMIN",
+        ]).optional()
+    ),
 });
 
 export const loginSchema = z.object({

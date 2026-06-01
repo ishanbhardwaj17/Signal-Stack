@@ -2,6 +2,9 @@ import jwt from "jsonwebtoken";
 import User from "../modules/auth/user.model.js";
 import ApiError from "../utils/ApiError.js";
 
+const normalizeRole = (role) =>
+    typeof role === "string" ? role.toUpperCase() : role;
+
 export const protect = async (req, res, next) => {
     try {
         const token = req.cookies?.access_token;
@@ -23,7 +26,10 @@ export const protect = async (req, res, next) => {
 
 export const authorizeRoles = (...roles) => {
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
+        const userRole = normalizeRole(req.user.role);
+        const allowedRoles = roles.map(normalizeRole);
+
+        if (!allowedRoles.includes(userRole)) {
             return next(new ApiError(403, "Access denied"));
         }
 

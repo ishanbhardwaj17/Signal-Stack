@@ -6,6 +6,9 @@ import { STATUS_TRANSITIONS, INCIDENT_STATUS, INCIDENT_SEVERITY } from "./incide
 
 import ApiError from "../../utils/ApiError.js";
 
+const normalizeRole = (role) =>
+    typeof role === "string" ? role.toUpperCase() : role;
+
 export const createIncident = async (
     incidentData,
     userId
@@ -144,7 +147,7 @@ export const assignIncident = async (
         throw new ApiError(404, "Engineer not found");
     }
 
-    if (engineer.role !== "engineer") {
+    if (normalizeRole(engineer.role) !== "ENGINEER") {
         throw new ApiError(
             400,
             "Only engineers can be assigned incidents"
@@ -191,7 +194,7 @@ export const updateIncidentStatus = async (
     }
 
     if (
-        user.role === "engineer" &&
+        normalizeRole(user.role) === "ENGINEER" &&
         incident.assignedTo?.toString() !== user._id.toString()
     ) {
         throw new ApiError(

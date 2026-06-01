@@ -46,14 +46,14 @@ router.get(
 router.delete(
   "/:id",
   protect,
-  authorizeRoles("admin"),
+  authorizeRoles("ADMIN"),
   deleteIncidentController
 );
 
 router.patch(
   "/:id/assign",
   protect,
-  authorizeRoles("admin"),
+  authorizeRoles("ADMIN"),
   validate(assignIncidentSchema),
   assignIncidentController
 );

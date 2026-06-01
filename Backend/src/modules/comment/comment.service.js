@@ -5,6 +5,9 @@ import Incident from "../incident/incident.model.js";
 import ApiError from "../../utils/ApiError.js";
 import { getIO } from "../../socket/socket.server.js";
 
+const normalizeRole = (role) =>
+    typeof role === "string" ? role.toUpperCase() : role;
+
 export const addComment = async (
     incidentId,
     message,
@@ -20,7 +23,7 @@ export const addComment = async (
 
     // Engineers can comment only on assigned incidents
     if (
-        user.role === "engineer" &&
+        normalizeRole(user.role) === "ENGINEER" &&
         incident.assignedTo?.toString() !== user._id.toString()
     ) {
         throw new ApiError(

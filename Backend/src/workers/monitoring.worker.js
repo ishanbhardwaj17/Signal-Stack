@@ -24,6 +24,7 @@ import {
 import {
     generateIncidentSummary,
 } from '../modules/ai/ai.service.js';
+import { autoAssignIncident } from '../modules/incident/assignment.service.js';
 
 if (!redisConnection) {
     console.log('Redis is disabled; monitoring worker will not start.');
@@ -221,6 +222,8 @@ const worker = new Worker(
                     });
 
                     console.log('Incident Created Successfully');
+
+                    await autoAssignIncident(activeIncident);
 
 
                     await scheduleSlaCheck(

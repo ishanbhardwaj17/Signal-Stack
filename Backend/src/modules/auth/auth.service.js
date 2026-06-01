@@ -9,6 +9,9 @@ import jwt from "jsonwebtoken";
 
 import ApiError from "../../utils/ApiError.js";
 
+const normalizeRole = (role) =>
+    typeof role === "string" ? role.toUpperCase() : role;
+
 const ACCESS_TOKEN_EXPIRES = process.env.ACCESS_TOKEN_EXPIRES || "15m";
 
 const REFRESH_TOKEN_EXPIRES_DAYS = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || "7", 10);
@@ -61,7 +64,7 @@ export const registerUser = async (userData) => {
         name,
         email,
         password: hashedPassword,
-        role,
+        role: normalizeRole(role) || "USER",
     });
 
     // Do not create tokens here; let controller call login flow if desired
