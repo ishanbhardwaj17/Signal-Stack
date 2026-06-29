@@ -6,10 +6,19 @@ function LiveIncidentFeed() {
     );
 
     return (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Live Incident Feed
-            </h2>
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-gray-900">
+                    Live Incident Feed
+                </h2>
+
+                <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                    {liveFeed.length} recent event
+                    {liveFeed.length === 1
+                        ? ""
+                        : "s"}
+                </span>
+            </div>
 
             <div className="space-y-3">
                 {liveFeed.length === 0 ? (

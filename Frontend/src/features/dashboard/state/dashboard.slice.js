@@ -9,7 +9,11 @@ const initialState = {
 
     loading: false,
 
+    refreshing: false,
+
     error: null,
+
+    lastUpdatedAt: null,
 };
 
 const dashboardSlice = createSlice({
@@ -39,7 +43,12 @@ const dashboardSlice = createSlice({
 
             state.loading = false;
 
+            state.refreshing = false;
+
             state.error = null;
+
+            state.lastUpdatedAt =
+                new Date().toISOString();
         },
 
         setDashboardError: (
@@ -49,6 +58,16 @@ const dashboardSlice = createSlice({
             state.error = action.payload;
 
             state.loading = false;
+
+            state.refreshing = false;
+        },
+
+        setDashboardRefreshing: (
+            state,
+            action
+        ) => {
+            state.refreshing =
+                action.payload;
         },
     },
 });
@@ -57,6 +76,7 @@ export const {
     setDashboardLoading,
     setDashboardData,
     setDashboardError,
+    setDashboardRefreshing,
 } = dashboardSlice.actions;
 
 export default dashboardSlice.reducer;

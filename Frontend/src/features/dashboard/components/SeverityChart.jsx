@@ -15,7 +15,7 @@ const COLORS = [
 
 function SeverityChart({ data }) {
     return (
-        <div className="min-w-0 rounded-lg bg-white p-6 shadow-sm">
+        <div className="min-w-0 rounded-3xl bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-xl font-semibold">
                 Severity Distribution
             </h2>
@@ -28,32 +28,43 @@ function SeverityChart({ data }) {
                     minHeight={240}
                 >
                     <PieChart>
-                        <Pie
-                            data={data}
-                            dataKey="count"
-                            nameKey="severity"
-                            outerRadius={100}
-                            label
-                        >
-                            {data.map(
-                                (entry, index) => (
-                                    <Cell
-                                        key={index}
-                                        fill={
-                                            COLORS[
-                                            index %
-                                            COLORS.length
-                                            ]
-                                        }
-                                    />
-                                )
-                            )}
-                        </Pie>
+                        {data.length ? (
+                            <Pie
+                                data={data}
+                                dataKey="count"
+                                nameKey="severity"
+                                outerRadius={100}
+                                label
+                            >
+                                {data.map(
+                                    (
+                                        entry,
+                                        index
+                                    ) => (
+                                        <Cell
+                                            key={index}
+                                            fill={
+                                                COLORS[
+                                                    index %
+                                                        COLORS.length
+                                                ]
+                                            }
+                                        />
+                                    )
+                                )}
+                            </Pie>
+                        ) : null}
 
                         <Tooltip />
                     </PieChart>
                 </ResponsiveContainer>
             </div>
+
+            {!data.length ? (
+                <p className="mt-3 text-sm text-slate-500">
+                    Severity distribution will appear once incidents are available.
+                </p>
+            ) : null}
         </div>
     );
 }

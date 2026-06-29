@@ -12,7 +12,7 @@ function IncidentTrendsChart({
   data,
 }) {
   return (
-    <div className="min-w-0 rounded-lg bg-white p-6 shadow-sm">
+    <div className="min-w-0 rounded-3xl bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-xl font-semibold">
         Incident Trends
       </h2>
@@ -33,13 +33,23 @@ function IncidentTrendsChart({
 
             <Tooltip />
 
-            <Line
-              type="monotone"
-              dataKey="incidents"
-            />
+            {data.length ? (
+              <Line
+                type="monotone"
+                dataKey="incidents"
+                stroke="#0f766e"
+                strokeWidth={3}
+              />
+            ) : null}
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {!data.length ? (
+        <p className="mt-3 text-sm text-slate-500">
+          Trend data will populate as incidents are created over time.
+        </p>
+      ) : null}
     </div>
   );
 }

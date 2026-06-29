@@ -26,3 +26,22 @@ export const fetchIncidentTrends =
 
         return response.data.data;
     };
+
+export const fetchDashboardBundle =
+    async () => {
+        const [
+            stats,
+            severityDistribution,
+            trends,
+        ] = await Promise.all([
+            fetchDashboardStats(),
+            fetchSeverityDistribution(),
+            fetchIncidentTrends(),
+        ]);
+
+        return {
+            stats,
+            severityDistribution,
+            trends,
+        };
+    };
