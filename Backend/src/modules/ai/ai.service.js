@@ -1,25 +1,79 @@
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 
 import Incident from "../incident/incident.model.js";
 import Comment from "../comment/comment.model.js";
 
 import ApiError from "../../utils/ApiError.js";
-
 import { emitSocketEvent } from "../../socket/socket.events.js";
 import {
     buildIncidentEventPayload,
     buildLiveFeedEvent,
 } from "../incident/incident.service.js";
-
-import { buildIncidentAnalysisPrompt } from "./prompt.templates.js";
-import { incidentSummaryPrompt } from "./prompt.templates.js";
-import { buildPlaybookPrompt } from "./prompt.templates.js";
-
+import {
+    buildIncidentAnalysisPrompt,
+    buildPlaybookPrompt,
+    incidentSummaryPrompt,
+} from "./prompt.templates.js";
 import {
     INCIDENT_SEVERITY,
 } from "../incident/incident.constants.js";
+import {
+    scheduleIncidentAnalysis,
+} from "../../queues/monitoring.queue.js";
 
-// Create AI client lazily
+export const AI_STATUS = {
+    IDLE: "IDLE",
+    QUEUED: "QUEUED",
+    PROCESSING: "PROCESSING",
+    COMPLETED: "COMPLETED",
+    FAILED: "FAILED",
+};
+
+const analysisSchema = z.object({
+    severity: z.enum([
+        INCIDENT_SEVERITY.LOW,
+        INCIDENT_SEVERITY.MEDIUM,
+        INCIDENT_SEVERITY.HIGH,
+        INCIDENT_SEVERITY.CRITICAL,
+    ]),
+    category: z.string().min(2),
+    summary: z.string().min(10),
+    suggestions: z
+        .array(z.string().min(2))
+        .min(1),
+    rootCause: z.string().min(10),
+    recommendations: z
+        .array(z.string().min(2))
+        .min(1),
+    riskAssessment: z.enum([
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+    ]),
+    playbook: z
+        .array(
+            z.object({
+                step: z.number(),
+                action: z.string().min(2),
+                command: z.string().min(1),
+            })
+        )
+        .min(1),
+});
+
+const playbookSchema = z.object({
+    playbook: z
+        .array(
+            z.object({
+                step: z.number(),
+                action: z.string().min(2),
+                command: z.string().min(1),
+            })
+        )
+        .min(1),
+});
+
 const getAIClient = () => {
     if (!process.env.GEMINI_API_KEY) {
         throw new ApiError(
@@ -33,333 +87,46 @@ const getAIClient = () => {
     });
 };
 
-export const analyzeIncident = async (
-    incidentId
+const cleanAiText = (text) =>
+    text
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
+
+const parseJsonResponse = (
+    text,
+    schema,
+    label
 ) => {
-    // Fetch incident
-    const incident = await Incident.findById(
-        incidentId
-    );
-
-    if (!incident) {
-        throw new ApiError(404, "Incident not found");
-    }
-
-    // Fetch comments
-    const comments = await Comment.find({
-        incidentId,
-    })
-        .populate("userId", "name")
-        .sort({ createdAt: 1 });
-
-    // Format comments for AI context
-    const formattedComments = comments
-        .map(
-            (comment) =>
-                `${comment.userId.name}: ${comment.message}`
-        )
-        .join("\n");
-
-    // Build prompt
-    const prompt =
-        buildIncidentAnalysisPrompt({
-            ...incident.toObject(),
-            comments:
-                formattedComments || "No comments",
-        });
-
-    // Initialize AI client
-    const ai = getAIClient();
-
-    // Generate AI response
-    const response =
-        await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-
-    const text = response.text;
-
-    if (!text) {
-        throw new ApiError(
-            500,
-            "Empty response received from AI"
-        );
-    }
-
-    // Remove markdown wrappers
-    const cleanedResponse = text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
-    let parsedResponse;
-
-    // Safe JSON parsing
-    try {
-        parsedResponse = JSON.parse(
-            cleanedResponse
-        );
-    } catch (error) {
-        console.error(
-            "AI RAW RESPONSE:",
-            cleanedResponse
-        );
-
-        throw new ApiError(
-            500,
-            "AI returned invalid JSON"
-        );
-    }
-
-    // Validate severity
-    const validSeverities = Object.values(
-        INCIDENT_SEVERITY
-    );
-
-    if (
-        !validSeverities.includes(
-            parsedResponse.severity
-        )
-    ) {
-        throw new ApiError(
-            500,
-            "Invalid severity returned by AI"
-        );
-    }
-
-    // Validate suggestions
-    if (
-        !Array.isArray(
-            parsedResponse.suggestions
-        )
-    ) {
-        throw new ApiError(
-            500,
-            "AI suggestions must be an array"
-        );
-    }
-
-    // Persist AI analysis
-    incident.severity =
-        parsedResponse.severity;
-
-    incident.category =
-        parsedResponse.category;
-
-    incident.aiSummary =
-        parsedResponse.summary;
-
-    incident.aiSuggestions =
-        parsedResponse.suggestions;
-
-    // Timeline event
-    incident.timeline.push({
-        action: "AI_ANALYSIS_COMPLETED",
-
-        previous: null,
-
-        current: parsedResponse.severity,
-
-        changedBy: null,
-    });
-
-    await incident.save();
-
-    // Emit realtime event
-    const payload =
-        await buildIncidentEventPayload(
-            incidentId
-        );
-
-    emitSocketEvent(
-        "incident:aiAnalyzed",
-        payload,
-        { room: incidentId.toString() }
-    );
-    emitSocketEvent(
-        "incident:feed",
-        buildLiveFeedEvent(
-            "AI_ANALYZED",
-            payload,
-            {
-                message: "AI analysis refreshed the incident",
-            }
-        )
-    );
-
-    return payload;
-};
-
-export const generateIncidentSummary = async (incidentId) => {
-    // Fetch incident
-    const incident = await Incident.findById(incidentId);
-
-    if (!incident) {
-        throw new ApiError(404, "Incident not found");
-    }
-
-    // Fetch comments
-    const comments = await Comment.find({ incidentId })
-        .populate("userId", "name")
-        .sort({ createdAt: 1 });
-
-    const formattedComments = comments
-        .map((comment) => `${comment.userId.name}: ${comment.message}`)
-        .join("\n");
-
-    const prompt = incidentSummaryPrompt({
-        ...incident.toObject(),
-        comments: formattedComments || "No comments",
-    });
-
-    const ai = getAIClient();
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-    });
-
-    const text = response.text;
-
-    if (!text) {
-        throw new ApiError(500, "Empty response received from AI");
-    }
-
-    // Return cleaned text
-    const cleaned = text.replace(/```/g, "").trim();
-
-    incident.aiSummary = cleaned;
-
-    incident.aiSummaryGeneratedAt = new Date();
-
-    await incident.save();
-
-    const payload =
-        await buildIncidentEventPayload(
-            incidentId
-        );
-
-    emitSocketEvent(
-        "incident:aiSummaryGenerated",
-        payload,
-        { room: incidentId.toString() }
-    );
-    emitSocketEvent(
-        "incident:feed",
-        buildLiveFeedEvent(
-            "AI_SUMMARY_GENERATED",
-            payload,
-            {
-                message: "AI summary generated",
-            }
-        )
-    );
-
-    return payload;
-};
-
-export const generateStructuredAnalysis = async (incidentId) => {
-    // Fetch incident
-    const incident = await Incident.findById(incidentId);
-
-    if (!incident) {
-        throw new ApiError(404, "Incident not found");
-    }
-
-    // Fetch comments
-    const comments = await Comment.find({ incidentId })
-        .populate("userId", "name")
-        .sort({ createdAt: 1 });
-
-    const formattedComments = comments
-        .map((comment) => `${comment.userId.name}: ${comment.message}`)
-        .join("\n");
-
-    const prompt = `You are an expert Site Reliability Engineer.
-
-Analyze the following incident and return ONLY valid JSON in this exact format:
-
-{
-  "summary": "string",
-  "rootCause": "string",
-  "recommendations": ["string"],
-  "riskAssessment": "LOW | MEDIUM | HIGH"
-}
-
-Incident Title:
-${incident.title}
-
-Incident Description:
-${incident.description}
-
-Current Status:
-${incident.status}
-
-Comments:
-${formattedComments || "No comments"}
-`;
-
-    const ai = getAIClient();
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-    });
-
-    const text = response.text;
-
-    if (!text) {
-        throw new ApiError(500, "Empty response received from AI");
-    }
-
-    const cleanedResponse = text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
     let parsed;
 
     try {
-        parsed = JSON.parse(cleanedResponse);
-    } catch (err) {
-        console.error("AI RAW RESPONSE:", cleanedResponse);
-        throw new ApiError(500, "AI returned invalid JSON for structured analysis");
+        parsed = JSON.parse(
+            cleanAiText(text)
+        );
+    } catch {
+        throw new ApiError(
+            500,
+            `${label}: AI returned invalid JSON`
+        );
     }
 
-    // Persist structured fields
-    incident.aiSummary = parsed.summary;
-    incident.aiRootCause = parsed.rootCause;
-    incident.aiRecommendations = parsed.recommendations;
-    incident.aiRiskAssessment = parsed.riskAssessment;
+    const result =
+        schema.safeParse(parsed);
 
-    incident.timeline.push({
-        action: "AI_STRUCTURED_ANALYSIS_COMPLETED",
-        previous: null,
-        current: incident.aiRiskAssessment || null,
-        changedBy: null,
-        timestamp: new Date(),
-    });
-
-    await incident.save();
-
-    // Emit realtime event
-    const payload =
-        await buildIncidentEventPayload(
-            incidentId
+    if (!result.success) {
+        throw new ApiError(
+            500,
+            `${label}: AI response failed validation`
         );
+    }
 
-    emitSocketEvent(
-        "incident:aiStructuredAnalyzed",
-        payload,
-        { room: incidentId.toString() }
-    );
-
-    return payload;
+    return result.data;
 };
 
-export const generateIncidentPlaybook =
-    async (incidentId) => {
+const getIncidentContext = async (
+    incidentId
+) => {
     const incident = await Incident.findById(
         incidentId
     );
@@ -371,71 +138,382 @@ export const generateIncidentPlaybook =
         );
     }
 
-    const prompt = buildPlaybookPrompt(
-        incident.toObject()
+    const comments = await Comment.find({
+        incidentId,
+    })
+        .populate("userId", "name")
+        .sort({ createdAt: 1 });
+
+    const formattedComments = comments
+        .map(
+            (comment) =>
+                `${comment.userId?.name || "Unknown"}: ${comment.message}`
+        )
+        .join("\n");
+
+    return {
+        incident,
+        formattedComments:
+            formattedComments ||
+            "No comments",
+    };
+};
+
+const emitAiProgress = async (
+    incidentId,
+    eventName,
+    feedType,
+    message
+) => {
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
+
+    emitSocketEvent(
+        eventName,
+        payload,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            feedType,
+            payload,
+            { message }
+        )
     );
 
-    const ai = getAIClient();
+    return payload;
+};
 
-    const response =
-        await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
+const saveCompletedAnalysis =
+    async (incident, analysis) => {
+        incident.severity =
+            analysis.severity;
+        incident.category =
+            analysis.category;
+        incident.aiSummary =
+            analysis.summary;
+        incident.aiSuggestions =
+            analysis.suggestions;
+        incident.aiRootCause =
+            analysis.rootCause;
+        incident.aiRecommendations =
+            analysis.recommendations;
+        incident.aiRiskAssessment =
+            analysis.riskAssessment;
+        incident.aiPlaybook =
+            analysis.playbook;
+        incident.aiSummaryGeneratedAt =
+            new Date();
+        incident.aiStatus =
+            AI_STATUS.COMPLETED;
+        incident.aiLastError = null;
+        incident.aiAnalysisCompletedAt =
+            new Date();
+
+        incident.timeline.push({
+            action:
+                "AI_ANALYSIS_COMPLETED",
+            current: analysis.severity,
+            changedBy: null,
+            timestamp: new Date(),
+        });
+        incident.timeline.push({
+            action:
+                "AI_STRUCTURED_ANALYSIS_COMPLETED",
+            current:
+                analysis.riskAssessment,
+            changedBy: null,
+            timestamp: new Date(),
+        });
+        incident.timeline.push({
+            action:
+                "AI_PLAYBOOK_GENERATED",
+            current: `${analysis.playbook.length} steps generated`,
+            changedBy: null,
+            timestamp: new Date(),
         });
 
-    const text = response.text;
+        await incident.save();
+    };
 
-    if (!text) {
-        throw new ApiError(
-            500,
-            "Empty AI response"
+const runStructuredAiAnalysis =
+    async ({
+        incident,
+        formattedComments,
+    }) => {
+        const ai = getAIClient();
+
+        const response =
+            await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents:
+                    buildIncidentAnalysisPrompt(
+                        {
+                            ...incident.toObject(),
+                            comments:
+                                formattedComments,
+                        }
+                    ),
+            });
+
+        const text = response.text;
+
+        if (!text) {
+            throw new ApiError(
+                500,
+                "AI returned an empty analysis response"
+            );
+        }
+
+        return parseJsonResponse(
+            text,
+            analysisSchema,
+            "Structured incident analysis"
         );
-    }
+    };
 
-    const cleaned = text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
+export const queueIncidentAnalysis =
+    async (incidentId) => {
+        const incident =
+            await Incident.findById(
+                incidentId
+            );
 
-    let parsed;
+        if (!incident) {
+            throw new ApiError(
+                404,
+                "Incident not found"
+            );
+        }
 
-    try {
-        parsed = JSON.parse(cleaned);
-    } catch (error) {
-        console.log("AI RAW RESPONSE:");
-        console.log(cleaned);
+        const job =
+            await scheduleIncidentAnalysis(
+                incidentId,
+                {
+                    removeOnComplete: 50,
+                    removeOnFail: 100,
+                }
+            );
 
-        throw new ApiError(
-            500,
-            "AI returned invalid JSON"
+        incident.aiStatus =
+            AI_STATUS.QUEUED;
+        incident.aiLastError = null;
+        incident.aiAnalysisQueuedAt =
+            new Date();
+        incident.aiAnalysisJobId =
+            job.id?.toString?.() || null;
+
+        incident.timeline.push({
+            action:
+                "AI_ANALYSIS_QUEUED",
+            current:
+                job.id?.toString?.() ||
+                "queued",
+            changedBy: null,
+            timestamp: new Date(),
+        });
+
+        await incident.save();
+
+        return emitAiProgress(
+            incidentId,
+            "incident:aiQueued",
+            "AI_QUEUED",
+            "AI analysis queued"
         );
-    }
+    };
 
-    if (
-        !Array.isArray(parsed.playbook)
-    ) {
-        throw new ApiError(
-            500,
-            "Invalid playbook format"
+export const runQueuedIncidentAnalysis =
+    async (incidentId) => {
+        const context =
+            await getIncidentContext(
+                incidentId
+            );
+        const { incident } = context;
+
+        incident.aiStatus =
+            AI_STATUS.PROCESSING;
+        incident.aiLastError = null;
+        incident.aiAnalysisStartedAt =
+            new Date();
+
+        incident.timeline.push({
+            action:
+                "AI_ANALYSIS_STARTED",
+            current: "processing",
+            changedBy: null,
+            timestamp: new Date(),
+        });
+
+        await incident.save();
+
+        await emitAiProgress(
+            incidentId,
+            "incident:aiProcessing",
+            "AI_PROCESSING",
+            "AI analysis is in progress"
         );
-    }
 
-    incident.aiPlaybook =
-        parsed.playbook;
+        try {
+            const analysis =
+                await runStructuredAiAnalysis(
+                    context
+                );
 
-    incident.timeline.push({
-        action:
-            "AI_PLAYBOOK_GENERATED",
+            await saveCompletedAnalysis(
+                incident,
+                analysis
+            );
 
-        previous: null,
+            return emitAiProgress(
+                incidentId,
+                "incident:aiCompleted",
+                "AI_COMPLETED",
+                "AI analysis completed"
+            );
+        } catch (error) {
+            incident.aiStatus =
+                AI_STATUS.FAILED;
+            incident.aiLastError =
+                error.message;
+            incident.aiAnalysisCompletedAt =
+                new Date();
 
-        current:
-            `${parsed.playbook.length} steps generated`,
+            incident.timeline.push({
+                action:
+                    "AI_ANALYSIS_FAILED",
+                current:
+                    error.message,
+                changedBy: null,
+                timestamp: new Date(),
+            });
 
-        changedBy: null,
-    });
+            await incident.save();
 
-    await incident.save();
+            await emitAiProgress(
+                incidentId,
+                "incident:aiFailed",
+                "AI_FAILED",
+                "AI analysis failed"
+            );
 
-    return incident;
-};
+            throw error;
+        }
+    };
+
+export const analyzeIncident =
+    async (incidentId) =>
+        queueIncidentAnalysis(
+            incidentId
+        );
+
+export const generateIncidentSummary =
+    async (incidentId) => {
+        const {
+            incident,
+            formattedComments,
+        } =
+            await getIncidentContext(
+                incidentId
+            );
+
+        const ai = getAIClient();
+        const response =
+            await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents:
+                    incidentSummaryPrompt(
+                        {
+                            ...incident.toObject(),
+                            comments:
+                                formattedComments,
+                        }
+                    ),
+            });
+
+        const text = response.text;
+
+        if (!text) {
+            throw new ApiError(
+                500,
+                "Empty response received from AI"
+            );
+        }
+
+        incident.aiSummary =
+            cleanAiText(text);
+        incident.aiSummaryGeneratedAt =
+            new Date();
+        await incident.save();
+
+        return emitAiProgress(
+            incidentId,
+            "incident:aiSummaryGenerated",
+            "AI_SUMMARY_GENERATED",
+            "AI summary generated"
+        );
+    };
+
+export const generateStructuredAnalysis =
+    async (incidentId) => {
+        await runQueuedIncidentAnalysis(
+            incidentId
+        );
+
+        return buildIncidentEventPayload(
+            incidentId
+        );
+    };
+
+export const generateIncidentPlaybook =
+    async (incidentId) => {
+        const { incident } =
+            await getIncidentContext(
+                incidentId
+            );
+
+        const ai = getAIClient();
+        const response =
+            await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents:
+                    buildPlaybookPrompt(
+                        incident.toObject()
+                    ),
+            });
+
+        const text = response.text;
+
+        if (!text) {
+            throw new ApiError(
+                500,
+                "Empty AI response"
+            );
+        }
+
+        const parsed =
+            parseJsonResponse(
+                text,
+                playbookSchema,
+                "Incident playbook"
+            );
+
+        incident.aiPlaybook =
+            parsed.playbook;
+        incident.timeline.push({
+            action:
+                "AI_PLAYBOOK_GENERATED",
+            current: `${parsed.playbook.length} steps generated`,
+            changedBy: null,
+            timestamp: new Date(),
+        });
+
+        await incident.save();
+
+        return buildIncidentEventPayload(
+            incidentId
+        );
+    };

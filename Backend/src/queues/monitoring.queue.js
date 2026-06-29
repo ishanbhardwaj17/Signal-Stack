@@ -48,3 +48,24 @@ export const scheduleIncidentSummary = async (
 
   return job;
 };
+
+export const scheduleIncidentAnalysis =
+  async (
+    incidentId,
+    options = {}
+  ) => {
+    const job =
+      await monitoringQueue.add(
+        'incident-ai-analysis',
+        {
+          incidentId,
+        },
+        options
+      );
+
+    console.log(
+      `AI Analysis Job Scheduled ${job.id}`
+    );
+
+    return job;
+  };

@@ -15,13 +15,11 @@ import {
     getSlaDelayMs,
 } from '../modules/incident/incident.sla.js';
 import {
+    scheduleIncidentAnalysis,
     scheduleSlaCheck,
 } from '../queues/monitoring.queue.js';
 import {
-    scheduleIncidentSummary,
-} from '../queues/monitoring.queue.js';
-import {
-    generateIncidentSummary,
+    runQueuedIncidentAnalysis,
 } from '../modules/ai/ai.service.js';
 import { autoAssignIncident } from '../modules/incident/assignment.service.js';
 import {
@@ -116,26 +114,26 @@ const processMonitoringJob = async (job) => {
 
         if (
             job.name ===
-            'incident-ai-summary'
+            'incident-ai-analysis'
         ) {
             const { incidentId } =
                 job.data;
 
             console.log(
-                `Generating AI Summary for ${incidentId}`
+                `Running AI analysis for ${incidentId}`
             );
 
             try {
-                await generateIncidentSummary(
+                await runQueuedIncidentAnalysis(
                     incidentId
                 );
 
                 console.log(
-                    `AI Summary Generated`
+                    `AI analysis completed`
                 );
             } catch (error) {
                 console.log(
-                    `AI Summary Failed`
+                    `AI analysis failed`
                 );
 
                 console.log(error.message);
@@ -290,7 +288,7 @@ const processMonitoringJob = async (job) => {
                         )
                     );
 
-                    await scheduleIncidentSummary(
+                    await scheduleIncidentAnalysis(
                         activeIncident._id
                     );
 
@@ -299,7 +297,7 @@ const processMonitoringJob = async (job) => {
                     );
 
                     console.log(
-                        `AI Summary Job Scheduled for ${activeIncident._id}`
+                        `AI Analysis Job Scheduled for ${activeIncident._id}`
                     );
 
                     console.log('Incident Created');

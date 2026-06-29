@@ -156,6 +156,22 @@ function IncidentDetails() {
         );
 
         socket.on(
+            "incident:aiQueued",
+            handleAIAnalyzed
+        );
+        socket.on(
+            "incident:aiProcessing",
+            handleAIAnalyzed
+        );
+        socket.on(
+            "incident:aiCompleted",
+            handleAIAnalyzed
+        );
+        socket.on(
+            "incident:aiFailed",
+            handleAIAnalyzed
+        );
+        socket.on(
             "incident:aiAnalyzed",
             handleAIAnalyzed
         );
@@ -187,6 +203,22 @@ function IncidentDetails() {
                 handleStatusChanged
             );
 
+            socket.off(
+                "incident:aiQueued",
+                handleAIAnalyzed
+            );
+            socket.off(
+                "incident:aiProcessing",
+                handleAIAnalyzed
+            );
+            socket.off(
+                "incident:aiCompleted",
+                handleAIAnalyzed
+            );
+            socket.off(
+                "incident:aiFailed",
+                handleAIAnalyzed
+            );
             socket.off(
                 "incident:aiAnalyzed",
                 handleAIAnalyzed

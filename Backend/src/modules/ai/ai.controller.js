@@ -1,13 +1,18 @@
 import asyncHandler from "../../utils/asyncHandler.js";
-import { analyzeIncident, generateIncidentSummary, generateStructuredAnalysis, generateIncidentPlaybook } from "./ai.service.js";
+import {
+    analyzeIncident,
+    generateIncidentSummary,
+    generateStructuredAnalysis,
+    generateIncidentPlaybook,
+} from "./ai.service.js";
 
 export const analyzeIncidentController =
     asyncHandler(async (req, res) => {
         const incident = await analyzeIncident(req.params.id);
 
-        res.status(200).json({
+        res.status(202).json({
             success: true,
-            message: "Incident analyzed successfully",
+            message: "Incident AI analysis queued successfully",
             data: incident,
         });
     });

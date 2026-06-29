@@ -123,6 +123,43 @@ const incidentSchema = new mongoose.Schema(
 
         aiSummaryGeneratedAt: Date,
 
+        aiStatus: {
+            type: String,
+            enum: [
+                "IDLE",
+                "QUEUED",
+                "PROCESSING",
+                "COMPLETED",
+                "FAILED",
+            ],
+            default: "IDLE",
+        },
+
+        aiLastError: {
+            type: String,
+            default: null,
+        },
+
+        aiAnalysisQueuedAt: {
+            type: Date,
+            default: null,
+        },
+
+        aiAnalysisStartedAt: {
+            type: Date,
+            default: null,
+        },
+
+        aiAnalysisCompletedAt: {
+            type: Date,
+            default: null,
+        },
+
+        aiAnalysisJobId: {
+            type: String,
+            default: null,
+        },
+
         aiPlaybook: [
             {
                 step: Number,

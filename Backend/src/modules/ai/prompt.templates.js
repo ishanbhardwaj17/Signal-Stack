@@ -16,6 +16,12 @@ ${incident.title}
 Incident Description:
 ${incident.description}
 
+Service:
+${incident.service || "Unknown"}
+
+Category:
+${incident.category || "Unknown"}
+
 Current Status:
 ${incident.status}
 
@@ -28,7 +34,17 @@ Return JSON in this exact format:
   "severity": "LOW | MEDIUM | HIGH | CRITICAL",
   "category": "string",
   "summary": "string",
-  "suggestions": ["suggestion1", "suggestion2"]
+  "suggestions": ["suggestion1", "suggestion2"],
+  "rootCause": "string",
+  "recommendations": ["item1", "item2"],
+  "riskAssessment": "LOW | MEDIUM | HIGH",
+  "playbook": [
+    {
+      "step": 1,
+      "action": "string",
+      "command": "string"
+    }
+  ]
 }
 `;
 };
@@ -72,6 +88,24 @@ Return ONLY valid JSON.
      "item2"
   ]
 }
+
+Incident:
+
+${JSON.stringify(
+        incident,
+        null,
+        2
+    )}
+`;
+
+export const aiSummaryFallbackPrompt =
+    (incident) => `
+You are an SRE incident assistant.
+
+Write a concise operational summary with:
+1. Current impact
+2. Probable root cause
+3. Recommended next actions
 
 Incident:
 

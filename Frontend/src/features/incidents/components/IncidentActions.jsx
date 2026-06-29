@@ -74,6 +74,11 @@ function IncidentActions({
         role === "SENIOR_ENGINEER" ||
         role === "ADMIN" ||
         isAssignedEngineer;
+    const isAiBusy =
+        incident.aiStatus ===
+            "QUEUED" ||
+        incident.aiStatus ===
+            "PROCESSING";
     const availableActions =
         (
             STATUS_ACTIONS[
@@ -155,9 +160,12 @@ function IncidentActions({
                 {canRunAi ? (
                     <button
                         onClick={handleAnalyze}
-                        className="rounded bg-black px-4 py-2 text-white"
+                        disabled={isAiBusy}
+                        className="rounded bg-black px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
-                        Run AI Analysis
+                        {isAiBusy
+                            ? "AI Running..."
+                            : "Queue AI Analysis"}
                     </button>
                 ) : null}
 
