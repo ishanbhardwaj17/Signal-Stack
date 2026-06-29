@@ -3,12 +3,100 @@ import {
     analyzeIncident,
 } from "../services/incident.api";
 
+const normalizeRole = (role) =>
+    typeof role === "string"
+        ? role.toUpperCase()
+        : role;
+
+const STATUS_ACTIONS = {
+    OPEN: [
+        {
+            label: "Triaged",
+            status: "TRIAGED",
+            className:
+                "bg-amber-500",
+        },
+    ],
+    TRIAGED: [
+        {
+            label: "Set In Progress",
+            status: "IN_PROGRESS",
+            className:
+                "bg-blue-500",
+        },
+    ],
+    IN_PROGRESS: [
+        {
+            label: "Set Monitoring",
+            status: "MONITORING",
+            className:
+                "bg-sky-500",
+        },
+    ],
+    MONITORING: [
+        {
+            label: "Resolve",
+            status: "RESOLVED",
+            className:
+                "bg-green-500",
+        },
+    ],
+    RESOLVED: [
+        {
+            label: "Close",
+            status: "CLOSED",
+            className:
+                "bg-gray-700",
+        },
+    ],
+    CLOSED: [],
+};
+
 function IncidentActions({
     incident,
     refreshIncident,
+    currentUser,
 }) {
+    const role = normalizeRole(
+        currentUser?.role
+    );
+    const isAssignedEngineer =
+        role === "ENGINEER" &&
+        incident.assignedTo?._id ===
+            currentUser?._id;
+    const canRunAi = [
+        "ENGINEER",
+        "SENIOR_ENGINEER",
+        "ADMIN",
+    ].includes(role);
+    const canTransition =
+        role === "SENIOR_ENGINEER" ||
+        role === "ADMIN" ||
+        isAssignedEngineer;
+    const availableActions =
+        (
+            STATUS_ACTIONS[
+                incident.status
+            ] || []
+        ).filter((action) => {
+            if (
+                action.status ===
+                "CLOSED"
+            ) {
+                return (
+                    role ===
+                        "SENIOR_ENGINEER" ||
+                    role === "ADMIN"
+                );
+            }
+
+            return canTransition;
+        });
+
     const handleAnalyze =
         async () => {
+            if (!canRunAi) return;
+
             await analyzeIncident(
                 incident._id
             );
@@ -18,6 +106,8 @@ function IncidentActions({
 
     const handleStatusChange =
         async (status) => {
+            if (!canTransition) return;
+
             await updateIncidentStatus(
                 incident._id,
                 status
@@ -32,35 +122,42 @@ function IncidentActions({
                 Actions
             </h2>
 
+            {!canRunAi && !canTransition ? (
+                <p className="mb-4 text-sm text-gray-500">
+                    Your role can view this
+                    incident, but only the
+                    assigned engineer, a
+                    senior engineer, or an
+                    admin can run response
+                    actions.
+                </p>
+            ) : null}
+
             <div className="flex flex-wrap gap-3">
-                <button
-                    onClick={handleAnalyze}
-                    className="rounded bg-black px-4 py-2 text-white"
-                >
-                    Run AI Analysis
-                </button>
+                {canRunAi ? (
+                    <button
+                        onClick={handleAnalyze}
+                        className="rounded bg-black px-4 py-2 text-white"
+                    >
+                        Run AI Analysis
+                    </button>
+                ) : null}
 
-                <button
-                    onClick={() =>
-                        handleStatusChange(
-                            "IN_PROGRESS"
-                        )
-                    }
-                    className="rounded bg-blue-500 px-4 py-2 text-white"
-                >
-                    Set In Progress
-                </button>
-
-                <button
-                    onClick={() =>
-                        handleStatusChange(
-                            "RESOLVED"
-                        )
-                    }
-                    className="rounded bg-green-500 px-4 py-2 text-white"
-                >
-                    Resolve
-                </button>
+                {availableActions.map(
+                    (action) => (
+                        <button
+                            key={action.status}
+                            onClick={() =>
+                                handleStatusChange(
+                                    action.status
+                                )
+                            }
+                            className={`rounded px-4 py-2 text-white ${action.className}`}
+                        >
+                            {action.label}
+                        </button>
+                    )
+                )}
             </div>
         </div>
     );

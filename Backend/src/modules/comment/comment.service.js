@@ -1,12 +1,17 @@
 import Comment from "./comment.model.js";
 
 import Incident from "../incident/incident.model.js";
+import {
+    buildIncidentEventPayload,
+    buildLiveFeedEvent,
+} from "../incident/incident.service.js";
 
 import ApiError from "../../utils/ApiError.js";
-import { getIO } from "../../socket/socket.server.js";
-
-const normalizeRole = (role) =>
-    typeof role === "string" ? role.toUpperCase() : role;
+import { emitSocketEvent } from "../../socket/socket.events.js";
+import {
+    normalizeRole,
+    ROLES,
+} from "../../utils/roles.js";
 
 export const addComment = async (
     incidentId,
@@ -23,7 +28,8 @@ export const addComment = async (
 
     // Engineers can comment only on assigned incidents
     if (
-        normalizeRole(user.role) === "ENGINEER" &&
+        normalizeRole(user.role) ===
+            ROLES.ENGINEER &&
         incident.assignedTo?.toString() !== user._id.toString()
     ) {
         throw new ApiError(
@@ -51,17 +57,31 @@ export const addComment = async (
 
     await incident.save();
 
-    const io = getIO();
+    const populatedComment =
+        await comment.populate(
+            "userId",
+            "name email role"
+        );
 
-    io.to(incidentId.toString()).emit(
+    emitSocketEvent(
         "comment:added",
-        comment
+        populatedComment,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "COMMENT_ADDED",
+            await buildIncidentEventPayload(
+                incidentId
+            ),
+            {
+                message: `${populatedComment.userId?.name || "A user"} added a comment`,
+            }
+        )
     );
 
-    return await comment.populate(
-        "userId",
-        "name email role"
-    );
+    return populatedComment;
 };
 
 export const getIncidentComments = async (

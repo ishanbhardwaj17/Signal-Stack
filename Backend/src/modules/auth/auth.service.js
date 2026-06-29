@@ -8,9 +8,7 @@ import RefreshToken from "./refreshToken.model.js";
 import jwt from "jsonwebtoken";
 
 import ApiError from "../../utils/ApiError.js";
-
-const normalizeRole = (role) =>
-    typeof role === "string" ? role.toUpperCase() : role;
+import { ROLES } from "../../utils/roles.js";
 
 const ACCESS_TOKEN_EXPIRES = process.env.ACCESS_TOKEN_EXPIRES || "15m";
 
@@ -50,7 +48,7 @@ const createRefreshToken = async (user, ipAddress) => {
 };
 
 export const registerUser = async (userData) => {
-    const { name, email, password, role } = userData;
+    const { name, email, password } = userData;
 
     const existingUser = await User.findOne({ email });
 
@@ -64,7 +62,7 @@ export const registerUser = async (userData) => {
         name,
         email,
         password: hashedPassword,
-        role: normalizeRole(role) || "USER",
+        role: ROLES.USER,
     });
 
     // Do not create tokens here; let controller call login flow if desired

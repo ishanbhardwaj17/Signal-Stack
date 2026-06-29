@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import Incident from '../modules/incident/incident.model.js';
-import connectDB from '../config/db.js';
 import { Worker } from 'bullmq';
 import { redisConnection } from '../config/redis.js';
 import Metric from '../modules/monitoring/monitoring.model.js';
@@ -25,13 +24,13 @@ import {
     generateIncidentSummary,
 } from '../modules/ai/ai.service.js';
 import { autoAssignIncident } from '../modules/incident/assignment.service.js';
+import {
+    buildIncidentEventPayload,
+    buildLiveFeedEvent,
+} from '../modules/incident/incident.service.js';
+import { emitSocketEvent } from '../socket/socket.events.js';
 
-if (!redisConnection) {
-    console.log('Redis is disabled; monitoring worker will not start.');
-    process.exit(0);
-}
-
-await connectDB();
+let monitoringWorker = null;
 
 const evaluateCondition = (
     metricValue,
@@ -54,32 +53,7 @@ const evaluateCondition = (
     }
 };
 
-const emitSocketEvent = (
-    eventName,
-    payload
-) => {
-    try {
-        redisConnection.publish(
-            'socket-events',
-            JSON.stringify({
-                eventName,
-                payload,
-            })
-        );
-
-        console.log(
-            `Socket Event Queued: ${eventName}`
-        );
-    } catch (error) {
-        console.log(
-            `Socket Event Skipped: ${eventName}`
-        );
-    }
-};
-
-const worker = new Worker(
-    'monitoring-queue',
-    async (job) => {
+const processMonitoringJob = async (job) => {
         console.log(`Processing Job: ${job.name}`);
 
         if (job.name === 'sla-check') {
@@ -105,11 +79,6 @@ const worker = new Worker(
 
             incident.slaBreached = true;
 
-            emitSocketEvent(
-                'incident:slaBreached',
-                incident
-            );
-
             incident.timeline.push({
                 action: 'SLA_BREACHED',
                 current: `SLA breached for ${incident.severity} incident`,
@@ -117,6 +86,26 @@ const worker = new Worker(
             });
 
             await incident.save();
+
+            const payload =
+                await buildIncidentEventPayload(
+                    incidentId
+                );
+
+            emitSocketEvent(
+                'incident:slaBreached',
+                payload
+            );
+            emitSocketEvent(
+                'incident:feed',
+                buildLiveFeedEvent(
+                    'SLA_BREACHED',
+                    payload,
+                    {
+                        message: 'Incident SLA has been breached',
+                    }
+                )
+            );
 
             console.log(
                 `SLA Breached for Incident ${incidentId}`
@@ -139,13 +128,6 @@ const worker = new Worker(
             try {
                 await generateIncidentSummary(
                     incidentId
-                );
-
-                emitSocketEvent(
-                    'incident:aiSummaryGenerated',
-                    {
-                        incidentId,
-                    }
                 );
 
                 console.log(
@@ -258,16 +240,46 @@ const worker = new Worker(
 
                     console.log('Incident Created Successfully');
 
+                    const createdPayload =
+                        await buildIncidentEventPayload(
+                            activeIncident._id
+                        );
+
                     emitSocketEvent(
                         'incident:created',
-                        activeIncident
+                        createdPayload
+                    );
+                    emitSocketEvent(
+                        'incident:feed',
+                        buildLiveFeedEvent(
+                            'CREATED',
+                            createdPayload,
+                            {
+                                message: `Monitoring created a ${createdPayload.severity.toLowerCase()} incident`,
+                            }
+                        )
                     );
 
                     await autoAssignIncident(activeIncident);
 
+                    const assignedPayload =
+                        await buildIncidentEventPayload(
+                            activeIncident._id
+                        );
+
                     emitSocketEvent(
                         'incident:assigned',
-                        activeIncident
+                        assignedPayload
+                    );
+                    emitSocketEvent(
+                        'incident:feed',
+                        buildLiveFeedEvent(
+                            'ASSIGNED',
+                            assignedPayload,
+                            {
+                                message: `Incident auto-assigned to ${assignedPayload.assignedTo?.name || 'an engineer'}`,
+                            }
+                        )
                     );
 
 
@@ -312,23 +324,13 @@ const worker = new Worker(
                 timestamp: new Date(),
             });
 
+            let severityEscalated = false;
+
             if (shouldEscalateSeverity(activeIncident.severity, incomingSeverity)) {
                 const previousSeverity = activeIncident.severity;
 
                 activeIncident.severity = incomingSeverity;
-
-                emitSocketEvent(
-                    'incident:severityEscalated',
-                    {
-                        incidentId:
-                            activeIncident._id,
-
-                        previousSeverity,
-
-                        currentSeverity:
-                            incomingSeverity,
-                    }
-                );
+                severityEscalated = true;
 
                 activeIncident.slaDueAt =
                     calculateSlaDueAt(
@@ -358,18 +360,82 @@ const worker = new Worker(
             }
 
             await activeIncident.save();
+
+            const alertPayload =
+                await buildIncidentEventPayload(
+                    activeIncident._id
+                );
+
+            emitSocketEvent(
+                'incident:feed',
+                buildLiveFeedEvent(
+                    'ALERT_TRIGGERED',
+                    alertPayload,
+                    {
+                        message: `${metric.metricType.toUpperCase()} hit ${metric.value} on ${metric.service}`,
+                        meta: {
+                            metricType:
+                                metric.metricType,
+                            metricValue:
+                                metric.value,
+                            threshold:
+                                rule.threshold,
+                            operator:
+                                rule.operator,
+                            alertId:
+                                alert._id.toString(),
+                        },
+                    }
+                )
+            );
+
+            if (severityEscalated) {
+                const payload =
+                    await buildIncidentEventPayload(
+                        activeIncident._id
+                    );
+
+                emitSocketEvent(
+                    'incident:severityEscalated',
+                    payload
+                );
+                emitSocketEvent(
+                    'incident:feed',
+                    buildLiveFeedEvent(
+                        'SEVERITY_ESCALATED',
+                        payload,
+                        {
+                            message: `Severity escalated to ${payload.severity}`,
+                        }
+                    )
+                );
+            }
         }
-    },
-    {
-        connection: redisConnection,
+};
+
+export const initMonitoringWorker = () => {
+    if (monitoringWorker || !redisConnection) {
+        return monitoringWorker;
     }
-);
 
-worker.on('completed', (job) => {
-    console.log(`Completed Job ${job.id}`);
-});
+    monitoringWorker = new Worker(
+        'monitoring-queue',
+        processMonitoringJob,
+        {
+            connection: redisConnection,
+        }
+    );
 
-worker.on('failed', (job, err) => {
-    console.log(`Failed Job ${job?.id}`);
-    console.log(err.message);
-});
+    monitoringWorker.on('completed', (job) => {
+        console.log(`Completed Job ${job.id}`);
+    });
+
+    monitoringWorker.on('failed', (job, err) => {
+        console.log(`Failed Job ${job?.id}`);
+        console.log(err.message);
+    });
+
+    console.log('Monitoring worker initialized');
+
+    return monitoringWorker;
+};

@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
+    connectSocket,
     getSocket,
 } from "../../../shared/services/socket.service";
 
@@ -40,6 +41,9 @@ function IncidentDetails() {
     } = useSelector(
         (state) => state.incidents
     );
+    const currentUser = useSelector(
+        (state) => state.auth.user
+    );
 
     const loadComments = useCallback(async () => {
         const data = await fetchComments(id);
@@ -59,7 +63,19 @@ function IncidentDetails() {
     }, [id, dispatch]);
 
     const handleCommentAdded = (newComment) => {
-        setComments((prev) => [newComment, ...prev]);
+        setComments((prev) => {
+            if (
+                prev.some(
+                    (comment) =>
+                        comment._id ===
+                        newComment._id
+                )
+            ) {
+                return prev;
+            }
+
+            return [newComment, ...prev];
+        });
     };
 
     useEffect(() => {
@@ -70,10 +86,11 @@ function IncidentDetails() {
             if (!isMounted) return;
             await loadComments();
 
-            const socket = getSocket();
-            if (socket) {
-                socket.emit("joinIncident", id);
-            }
+            const socket =
+                getSocket() ||
+                connectSocket();
+
+            socket.emit("joinIncident", id);
         };
 
         init();
@@ -118,8 +135,22 @@ function IncidentDetails() {
             );
         };
 
+        const handleIncidentRefresh = (
+            updatedIncident
+        ) => {
+            if (
+                updatedIncident?._id === id
+            ) {
+                dispatch(
+                    setSelectedIncident(
+                        updatedIncident
+                    )
+                );
+            }
+        };
+
         socket.on(
-            "incident:statusChanged",
+            "incident:statusUpdated",
             handleStatusChanged
         );
 
@@ -132,6 +163,18 @@ function IncidentDetails() {
             "incident:assigned",
             handleAssigned
         );
+        socket.on(
+            "incident:slaBreached",
+            handleIncidentRefresh
+        );
+        socket.on(
+            "incident:severityEscalated",
+            handleIncidentRefresh
+        );
+        socket.on(
+            "incident:aiSummaryGenerated",
+            handleIncidentRefresh
+        );
 
         // comments
         const handleCommentAddedLocal = (comment) => handleCommentAdded(comment);
@@ -139,7 +182,7 @@ function IncidentDetails() {
 
         return () => {
             socket.off(
-                "incident:statusChanged",
+                "incident:statusUpdated",
                 handleStatusChanged
             );
 
@@ -152,10 +195,22 @@ function IncidentDetails() {
                 "incident:assigned",
                 handleAssigned
             );
+            socket.off(
+                "incident:slaBreached",
+                handleIncidentRefresh
+            );
+            socket.off(
+                "incident:severityEscalated",
+                handleIncidentRefresh
+            );
+            socket.off(
+                "incident:aiSummaryGenerated",
+                handleIncidentRefresh
+            );
 
             socket.off("comment:added", handleCommentAddedLocal);
         };
-    }, [dispatch]);
+    }, [dispatch, id]);
 
     if (
         loading ||
@@ -165,6 +220,21 @@ function IncidentDetails() {
             <div>Loading incident...</div>
         );
     }
+
+    const normalizedRole =
+        currentUser?.role?.toUpperCase?.() ||
+        "";
+    const isAssignedEngineer =
+        normalizedRole === "ENGINEER" &&
+        selectedIncident.assignedTo?._id ===
+            currentUser?._id;
+    const canComment =
+        normalizedRole !== "ENGINEER" ||
+        isAssignedEngineer;
+    const commentHelperText =
+        canComment
+            ? ""
+            : "Engineers can only comment on incidents assigned to them.";
 
     return (
         <div className="space-y-6">
@@ -189,7 +259,13 @@ function IncidentDetails() {
 
                     <CommentInput
                         incidentId={id}
-                        refreshComments={loadComments}
+                        onCommentAdded={
+                            handleCommentAdded
+                        }
+                        disabled={!canComment}
+                        helperText={
+                            commentHelperText
+                        }
                     />
                 </div>
 
@@ -197,6 +273,9 @@ function IncidentDetails() {
                 <div>
                     <IncidentActions
                         incident={selectedIncident}
+                        currentUser={
+                            currentUser
+                        }
                         refreshIncident={
                             loadIncident
                         }

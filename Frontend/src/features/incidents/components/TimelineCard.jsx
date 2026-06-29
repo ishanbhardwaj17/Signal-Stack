@@ -19,7 +19,8 @@ function TimelineCard({
 
                         <p className="text-sm text-gray-500">
                             {new Date(
-                                event.createdAt
+                                event.timestamp ||
+                                    event.createdAt
                             ).toLocaleString()}
                         </p>
 

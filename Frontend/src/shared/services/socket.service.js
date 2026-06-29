@@ -1,7 +1,5 @@
 import { io } from "socket.io-client";
-
-const SOCKET_URL =
-    "http://localhost:3000";
+import { SOCKET_URL } from "./runtime-config";
 
 let socket = null;
 

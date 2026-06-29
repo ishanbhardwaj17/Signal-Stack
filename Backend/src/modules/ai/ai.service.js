@@ -5,7 +5,11 @@ import Comment from "../comment/comment.model.js";
 
 import ApiError from "../../utils/ApiError.js";
 
-import { getIO } from "../../socket/socket.server.js";
+import { emitSocketEvent } from "../../socket/socket.events.js";
+import {
+    buildIncidentEventPayload,
+    buildLiveFeedEvent,
+} from "../incident/incident.service.js";
 
 import { buildIncidentAnalysisPrompt } from "./prompt.templates.js";
 import { incidentSummaryPrompt } from "./prompt.templates.js";
@@ -163,14 +167,28 @@ export const analyzeIncident = async (
     await incident.save();
 
     // Emit realtime event
-    const io = getIO();
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
 
-    io.to(incidentId.toString()).emit(
+    emitSocketEvent(
         "incident:aiAnalyzed",
-        incident
+        payload,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "AI_ANALYZED",
+            payload,
+            {
+                message: "AI analysis refreshed the incident",
+            }
+        )
     );
 
-    return incident;
+    return payload;
 };
 
 export const generateIncidentSummary = async (incidentId) => {
@@ -217,7 +235,28 @@ export const generateIncidentSummary = async (incidentId) => {
 
     await incident.save();
 
-    return incident;
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
+
+    emitSocketEvent(
+        "incident:aiSummaryGenerated",
+        payload,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "AI_SUMMARY_GENERATED",
+            payload,
+            {
+                message: "AI summary generated",
+            }
+        )
+    );
+
+    return payload;
 };
 
 export const generateStructuredAnalysis = async (incidentId) => {
@@ -305,11 +344,18 @@ ${formattedComments || "No comments"}
     await incident.save();
 
     // Emit realtime event
-    const io = getIO();
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
 
-    io.to(incidentId.toString()).emit("incident:aiStructuredAnalyzed", incident);
+    emitSocketEvent(
+        "incident:aiStructuredAnalyzed",
+        payload,
+        { room: incidentId.toString() }
+    );
 
-    return incident;
+    return payload;
 };
 
 export const generateIncidentPlaybook =

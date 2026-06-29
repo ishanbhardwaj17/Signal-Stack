@@ -64,7 +64,7 @@ export const assignIncidentController =
         const incident = await assignIncident(
             req.params.id,
             req.body.assignedTo,
-            req.user._id
+            req.user
         );
 
         res.status(200).json({

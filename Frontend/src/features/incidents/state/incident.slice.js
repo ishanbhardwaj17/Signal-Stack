@@ -73,6 +73,31 @@ const incidentSlice = createSlice({
         },
 
         addLiveIncident: (state, action) => {
+            const incomingEvent =
+                action.payload;
+            const incomingKey = [
+                incomingEvent.type,
+                incomingEvent.timestamp,
+                incomingEvent.meta
+                    ?.incidentId,
+            ].join(":");
+
+            const alreadyExists =
+                state.liveFeed.some((event) => {
+                    const eventKey = [
+                        event.type,
+                        event.timestamp,
+                        event.meta
+                            ?.incidentId,
+                    ].join(":");
+
+                    return eventKey === incomingKey;
+                });
+
+            if (alreadyExists) {
+                return;
+            }
+
             state.liveFeed.unshift(action.payload);
 
             state.liveFeed = state.liveFeed.slice(0, 20);

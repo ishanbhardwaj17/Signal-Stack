@@ -1,19 +1,55 @@
 import Incident from "./incident.model.js";
 import User from "../auth/user.model.js";
-import { getIO } from "../../socket/socket.server.js";
+import { emitSocketEvent } from "../../socket/socket.events.js";
 
-import { STATUS_TRANSITIONS, INCIDENT_STATUS, INCIDENT_SEVERITY } from "./incident.constants.js";
+import { STATUS_TRANSITIONS, INCIDENT_STATUS } from "./incident.constants.js";
 
 import ApiError from "../../utils/ApiError.js";
+import {
+    canBeAssignedIncident,
+    canCloseIncident,
+    canUpdateIncidentStatus,
+    normalizeRole,
+    ROLES,
+} from "../../utils/roles.js";
 
-const normalizeRole = (role) =>
-    typeof role === "string" ? role.toUpperCase() : role;
+export const buildIncidentEventPayload = async (
+    incidentId
+) => {
+    return Incident.findById(incidentId)
+        .populate("createdBy", "name email role")
+        .populate("assignedTo", "name email role")
+        .populate("timeline.changedBy", "name email");
+};
+
+export const buildLiveFeedEvent = (
+    type,
+    incident,
+    meta = {}
+) => {
+    const message =
+        meta.message ||
+        `${incident.title} (${incident.severity})`;
+
+    return {
+        type,
+        timestamp: meta.timestamp || new Date().toISOString(),
+        message,
+        incident,
+        meta: {
+            incidentId: incident._id?.toString?.() || null,
+            status: incident.status || null,
+            severity: incident.severity || null,
+            ...meta.meta,
+        },
+    };
+};
 
 export const createIncident = async (
     incidentData,
     userId
 ) => {
-    const incident = await Incident.create({
+    const createdIncident = await Incident.create({
         ...incidentData,
 
         createdBy: userId,
@@ -26,6 +62,26 @@ export const createIncident = async (
             },
         ],
     });
+
+    const incident =
+        await buildIncidentEventPayload(
+            createdIncident._id
+        );
+
+    emitSocketEvent(
+        "incident:created",
+        incident
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "CREATED",
+            incident,
+            {
+                message: `New ${incident.severity.toLowerCase()} incident created`,
+            }
+        )
+    );
 
     return incident;
 };
@@ -133,7 +189,7 @@ export const deleteIncident = async (incidentId) => {
 export const assignIncident = async (
     incidentId,
     assignedTo,
-    adminId
+    assignedBy
 ) => {
     const incident = await Incident.findById(incidentId);
 
@@ -147,10 +203,14 @@ export const assignIncident = async (
         throw new ApiError(404, "Engineer not found");
     }
 
-    if (normalizeRole(engineer.role) !== "ENGINEER") {
+    if (
+        !canBeAssignedIncident(
+            engineer.role
+        )
+    ) {
         throw new ApiError(
             400,
-            "Only engineers can be assigned incidents"
+            "Only engineers or senior engineers can be assigned incidents"
         );
     }
 
@@ -167,19 +227,33 @@ export const assignIncident = async (
 
         current: assignedTo,
 
-        changedBy: adminId,
+        changedBy: assignedBy._id,
     });
 
     await incident.save();
 
-    const io = getIO();
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
 
-    io.to(incidentId.toString()).emit(
+    emitSocketEvent(
         "incident:assigned",
-        incident
+        payload,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "ASSIGNED",
+            payload,
+            {
+                message: `Incident assigned to ${payload.assignedTo?.name || "an engineer"}`,
+            }
+        )
     );
 
-    return incident;
+    return payload;
 };
 
 export const updateIncidentStatus = async (
@@ -193,8 +267,23 @@ export const updateIncidentStatus = async (
         throw new ApiError(404, "Incident not found");
     }
 
+    const userRole = normalizeRole(
+        user.role
+    );
+
     if (
-        normalizeRole(user.role) === "ENGINEER" &&
+        !canUpdateIncidentStatus(
+            userRole
+        )
+    ) {
+        throw new ApiError(
+            403,
+            "Your role cannot update incident statuses"
+        );
+    }
+
+    if (
+        userRole === ROLES.ENGINEER &&
         incident.assignedTo?.toString() !== user._id.toString()
     ) {
         throw new ApiError(
@@ -213,6 +302,16 @@ export const updateIncidentStatus = async (
         throw new ApiError(
             400,
             `Invalid status transition from ${currentStatus} to ${newStatus}`
+        );
+    }
+
+    if (
+        newStatus === INCIDENT_STATUS.CLOSED &&
+        !canCloseIncident(userRole)
+    ) {
+        throw new ApiError(
+            403,
+            "Only senior engineers or admins can close incidents"
         );
     }
     
@@ -241,12 +340,30 @@ export const updateIncidentStatus = async (
 
     await incident.save();
 
-    const io = getIO();
+    const payload =
+        await buildIncidentEventPayload(
+            incidentId
+        );
 
-    io.to(incidentId.toString()).emit(
+    emitSocketEvent(
         "incident:statusUpdated",
-        incident
+        payload,
+        { room: incidentId.toString() }
+    );
+    emitSocketEvent(
+        "incident:feed",
+        buildLiveFeedEvent(
+            "STATUS_UPDATED",
+            payload,
+            {
+                message: `Incident moved to ${newStatus}`,
+                meta: {
+                    previousStatus:
+                        currentStatus,
+                },
+            }
+        )
     );
 
-    return incident;
+    return payload;
 };

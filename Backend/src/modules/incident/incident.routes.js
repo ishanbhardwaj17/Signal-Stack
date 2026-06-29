@@ -53,7 +53,7 @@ router.delete(
 router.patch(
   "/:id/assign",
   protect,
-  authorizeRoles("ADMIN"),
+  authorizeRoles("ADMIN", "SENIOR_ENGINEER"),
   validate(assignIncidentSchema),
   assignIncidentController
 );
@@ -61,6 +61,11 @@ router.patch(
 router.patch(
   "/:id/status",
   protect,
+  authorizeRoles(
+    "ENGINEER",
+    "SENIOR_ENGINEER",
+    "ADMIN"
+  ),
   validate(updateStatusSchema),
   updateIncidentStatusController
 );

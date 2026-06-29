@@ -1,5 +1,9 @@
 import { Server } from "socket.io";
 import { redisConnection } from "../config/redis.js";
+import Incident from "../modules/incident/incident.model.js";
+import {
+    getAuthenticatedUser,
+} from "../middleware/auth.middleware.js";
 
 let io;
 let socketEventSubscriber;
@@ -26,6 +30,14 @@ export const initSocketServer = (server) => {
                 return;
             }
 
+            if (parsedMessage.room) {
+                io.to(parsedMessage.room).emit(
+                    parsedMessage.eventName,
+                    parsedMessage.payload
+                );
+                return;
+            }
+
             io.emit(
                 parsedMessage.eventName,
                 parsedMessage.payload
@@ -35,12 +47,61 @@ export const initSocketServer = (server) => {
         }
     });
 
+    io.use(async (socket, next) => {
+        try {
+            const requestLike = {
+                headers:
+                    socket.handshake.headers,
+            };
+
+            socket.data.user =
+                await getAuthenticatedUser(
+                    requestLike
+                );
+
+            next();
+        } catch (error) {
+            next(
+                new Error(
+                    "Unauthorized socket connection"
+                )
+            );
+        }
+    });
+
     io.on("connection", (socket) => {
         console.log(
             `Socket Connected: ${socket.id}`
         );
 
-        socket.on("joinIncident", (incidentId) => {
+        socket.on("joinIncident", async (incidentId) => {
+            if (!incidentId) {
+                socket.emit(
+                    "socket:error",
+                    {
+                        message:
+                            "Incident room ID is required",
+                    }
+                );
+                return;
+            }
+
+            const incident =
+                await Incident.findById(
+                    incidentId
+                ).select("_id");
+
+            if (!incident) {
+                socket.emit(
+                    "socket:error",
+                    {
+                        message:
+                            "Incident room not found",
+                    }
+                );
+                return;
+            }
+
             socket.join(incidentId);
 
             console.log(

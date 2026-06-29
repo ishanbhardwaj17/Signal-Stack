@@ -7,20 +7,26 @@ import connectDB from "./src/config/db.js";
 import { redisConnection } from "./src/config/redis.js";
 import { monitoringQueue } from './src/queues/monitoring.queue.js';
 import {  initSocketServer} from "./src/socket/socket.server.js";
+import { initMonitoringWorker } from "./src/workers/monitoring.worker.js";
 
-const PORT = process.env.PORT || 5000;
-
-connectDB();
+const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
-initSocketServer(server);
+const startServer = async () => {
+  await connectDB();
 
-server.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
-});
+  initSocketServer(server);
+  initMonitoringWorker();
+
+  server.listen(PORT, () => {
+    console.log(
+      `Server running on port ${PORT}`
+    );
+  });
+
+  console.log(monitoringQueue.name);
+};
 
 // Handle listen errors (e.g. port already in use)
 server.on('error', (err) => {
@@ -32,4 +38,7 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-console.log(monitoringQueue.name);
+startServer().catch((err) => {
+  console.error('Startup error:', err);
+  process.exit(1);
+});

@@ -24,7 +24,10 @@ function LiveIncidentFeed() {
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                                    {item.type}
+                                    {item.type.replaceAll(
+                                        "_",
+                                        " "
+                                    )}
                                 </span>
 
                                 <span className="text-xs text-gray-400">
@@ -35,7 +38,15 @@ function LiveIncidentFeed() {
                             </div>
 
                             <p className="mt-2 text-sm font-medium text-gray-900">
+                                {item.message ||
+                                    item.incident?.title}
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
                                 {item.incident?.title}
+                                {item.incident?.service
+                                    ? ` - ${item.incident.service}`
+                                    : ""}
                             </p>
                         </div>
                     ))

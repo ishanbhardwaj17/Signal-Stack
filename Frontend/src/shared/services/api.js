@@ -1,12 +1,13 @@
 import axios from "axios";
+import { API_BASE_URL } from "./runtime-config";
 
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
 const refreshClient = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
