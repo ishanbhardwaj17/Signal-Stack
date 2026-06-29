@@ -34,6 +34,28 @@ export const updateIncidentStatus =
         return response.data.data;
     };
 
+export const createIncident =
+    async (payload) => {
+        const response = await api.post(
+            "/incidents",
+            payload
+        );
+
+        return response.data.data;
+    };
+
+export const assignIncident =
+    async (id, assignedTo) => {
+        const response = await api.patch(
+            `/incidents/${id}/assign`,
+            {
+                assignedTo,
+            }
+        );
+
+        return response.data.data;
+    };
+
 export const analyzeIncident =
     async (id) => {
         const response = await api.post(

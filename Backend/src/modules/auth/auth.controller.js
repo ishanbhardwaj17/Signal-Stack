@@ -6,6 +6,7 @@ import {
     rotateRefreshToken,
     revokeRefreshToken,
     findRefreshToken,
+    listUsers,
 } from "./auth.service.js";
 
 import ApiError from "../../utils/ApiError.js";
@@ -50,6 +51,21 @@ export const getMeController = asyncHandler(async (req, res) => {
         },
     });
 });
+
+export const listUsersController =
+    asyncHandler(async (req, res) => {
+        const users = await listUsers({
+            assignableOnly:
+                req.query.assignable ===
+                "true",
+        });
+
+        res.status(200).json({
+            success: true,
+            count: users.length,
+            data: users,
+        });
+    });
 
 export const refreshToken = asyncHandler(async (req, res) => {
     const token = req.cookies["refresh_token"];

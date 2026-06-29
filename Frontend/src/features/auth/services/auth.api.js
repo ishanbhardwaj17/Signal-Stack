@@ -45,3 +45,17 @@ export const logoutUser = async () => {
 
   return response.data;
 };
+
+export const fetchAssignableUsers =
+  async () => {
+    const response = await api.get(
+      "/auth/users",
+      {
+        params: {
+          assignable: true,
+        },
+      }
+    );
+
+    return response.data.data;
+  };

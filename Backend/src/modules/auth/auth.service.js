@@ -8,7 +8,10 @@ import RefreshToken from "./refreshToken.model.js";
 import jwt from "jsonwebtoken";
 
 import ApiError from "../../utils/ApiError.js";
-import { ROLES } from "../../utils/roles.js";
+import {
+    canBeAssignedIncident,
+    ROLES,
+} from "../../utils/roles.js";
 
 const ACCESS_TOKEN_EXPIRES = process.env.ACCESS_TOKEN_EXPIRES || "15m";
 
@@ -147,4 +150,34 @@ export const findRefreshToken = async (token) => {
     const tokenHash = hashToken(token);
 
     return RefreshToken.findOne({ token: tokenHash }).populate("user");
+};
+
+export const listUsers = async ({
+    assignableOnly = false,
+} = {}) => {
+    const query = assignableOnly
+        ? {
+            role: {
+                $in: [
+                    ROLES.ENGINEER,
+                    ROLES.SENIOR_ENGINEER,
+                ],
+            },
+        }
+        : {};
+
+    const users = await User.find(query)
+        .select("name email role")
+        .sort({
+            role: 1,
+            name: 1,
+        });
+
+    if (!assignableOnly) {
+        return users;
+    }
+
+    return users.filter((user) =>
+        canBeAssignedIncident(user.role)
+    );
 };

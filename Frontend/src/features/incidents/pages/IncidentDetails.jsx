@@ -24,6 +24,7 @@ import AISummaryCard from "../components/AISummaryCard";
 import TimelineCard from "../components/TimelineCard";
 
 import IncidentActions from "../components/IncidentActions";
+import IncidentAssignmentCard from "../components/IncidentAssignmentCard";
 
 import CommentsCard from "../components/CommentsCard";
 
@@ -270,7 +271,16 @@ function IncidentDetails() {
                 </div>
 
                 {/* Right */}
-                <div>
+                <div className="space-y-6">
+                    <IncidentAssignmentCard
+                        incident={selectedIncident}
+                        currentUser={
+                            currentUser
+                        }
+                        onAssigned={
+                            loadIncident
+                        }
+                    />
                     <IncidentActions
                         incident={selectedIncident}
                         currentUser={

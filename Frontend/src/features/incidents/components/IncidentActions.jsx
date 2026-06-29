@@ -1,4 +1,5 @@
 import {
+    assignIncident,
     updateIncidentStatus,
     analyzeIncident,
 } from "../services/incident.api";
@@ -116,8 +117,25 @@ function IncidentActions({
             refreshIncident();
         };
 
+    const handleAutoAssignToMe =
+        async () => {
+            if (
+                role !== "ENGINEER" &&
+                role !== "SENIOR_ENGINEER"
+            ) {
+                return;
+            }
+
+            await assignIncident(
+                incident._id,
+                currentUser._id
+            );
+
+            refreshIncident();
+        };
+
     return (
-        <div className="rounded-lg bg-white p-6 shadow-sm">
+        <div className="rounded-3xl bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-xl font-semibold">
                 Actions
             </h2>
@@ -140,6 +158,22 @@ function IncidentActions({
                         className="rounded bg-black px-4 py-2 text-white"
                     >
                         Run AI Analysis
+                    </button>
+                ) : null}
+
+                {!incident.assignedTo &&
+                (
+                    role === "ENGINEER" ||
+                    role ===
+                        "SENIOR_ENGINEER"
+                ) ? (
+                    <button
+                        onClick={
+                            handleAutoAssignToMe
+                        }
+                        className="rounded bg-cyan-600 px-4 py-2 text-white"
+                    >
+                        Assign To Me
                     </button>
                 ) : null}
 
