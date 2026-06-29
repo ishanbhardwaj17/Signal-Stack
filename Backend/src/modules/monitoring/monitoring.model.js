@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { METRIC_TYPES } from './monitoring.constants.js';
 
 const metricSchema = new mongoose.Schema(
     {
@@ -13,10 +14,7 @@ const metricSchema = new mongoose.Schema(
             required: true,
 
             enum: [
-                'cpu',
-                'memory',
-                'latency',
-                'errors',
+                ...METRIC_TYPES,
             ],
         },
 

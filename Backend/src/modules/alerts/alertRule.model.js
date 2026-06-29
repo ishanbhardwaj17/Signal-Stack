@@ -1,4 +1,9 @@
 import mongoose from 'mongoose';
+import {
+  ALERT_OPERATORS,
+  ALERT_SEVERITIES,
+  METRIC_TYPES,
+} from '../monitoring/monitoring.constants.js';
 
 const alertRuleSchema =
   new mongoose.Schema(
@@ -14,10 +19,7 @@ const alertRuleSchema =
         required: true,
 
         enum: [
-          'cpu',
-          'memory',
-          'latency',
-          'errors',
+          ...METRIC_TYPES,
         ],
       },
 
@@ -26,11 +28,7 @@ const alertRuleSchema =
         required: true,
 
         enum: [
-          '>',
-          '<',
-          '>=',
-          '<=',
-          '==',
+          ...ALERT_OPERATORS,
         ],
       },
 
@@ -44,10 +42,7 @@ const alertRuleSchema =
         required: true,
 
         enum: [
-          'low',
-          'medium',
-          'high',
-          'critical',
+          ...ALERT_SEVERITIES,
         ],
       },
 
